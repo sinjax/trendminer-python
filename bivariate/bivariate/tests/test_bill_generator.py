@@ -8,3 +8,4 @@ def test_import():
 
 	print X.shape
 	print Y.shape
+	print gen.folds
