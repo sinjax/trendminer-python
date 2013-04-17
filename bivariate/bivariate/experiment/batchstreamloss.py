@@ -31,7 +31,7 @@ def prepareExperiment():
 	opts = cp.options(sectName)
 	fs = cp.get(sectName,"format",1)
 	handler = logging.handlers.RotatingFileHandler(os.sep.join([EXPERIMENT_ROOT,"experiment.log"]))
-	handler.setFormatter(LogFormatter(fs,None))
+	handler.setFormatter(logging.Formatter(fs,None))
 	logger.getLogger().addHandler(handler)
 
 def runExperiment():
