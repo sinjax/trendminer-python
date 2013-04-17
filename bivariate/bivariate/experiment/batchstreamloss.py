@@ -13,7 +13,7 @@ logger.config.fileConfig("logconfig.ini")
 
 
 
-DATA_ROOT="/home/ss/Dropbox/TrendMiner/deliverables/year2-18month"\
+DATA_ROOT="%s/Dropbox/TrendMiner/deliverables/year2-18month"%os.environ['HOME']\
 					+"/Austrian Data"
 EXPERIMENTS_ROOT=os.sep.join([DATA_ROOT,"batchStreamLossExperiments"])
 EXPERIMENT_NAME="batch_%d"%(time.time()*1000)
@@ -31,7 +31,7 @@ def prepareExperiment():
 	opts = cp.options(sectName)
 	fs = cp.get(sectName,"format",1)
 	handler = logging.handlers.RotatingFileHandler(os.sep.join([EXPERIMENT_ROOT,"experiment.log"]))
-	handler.setFormatter(logging.Formatter(fs,None))
+	handler.setFormatter(LogFormatter(fs,None))
 	logger.getLogger().addHandler(handler)
 
 def runExperiment():
