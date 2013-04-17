@@ -30,9 +30,11 @@ def prepareExperiment():
 	sectName = "formatter_%s"%formatterName
 	opts = cp.options(sectName)
 	fs = cp.get(sectName,"format",1)
-	handler = logging.handlers.RotatingFileHandler(os.sep.join([EXPERIMENT_ROOT,"experiment.log"]))
+	loggingOutput = os.sep.join([EXPERIMENT_ROOT,"experiment.log"])
+	handler = logging.handlers.RotatingFileHandler(loggingOutput)
 	handler.setFormatter(logging.Formatter(fs,None))
 	logger.getLogger().addHandler(handler)
+	print "Experiment log location: \n %s"%loggingOutput
 
 def runExperiment():
 	spamsDict = {
