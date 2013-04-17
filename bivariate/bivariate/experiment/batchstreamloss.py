@@ -1,10 +1,17 @@
 import time
 import logging as logger
+import logging.config
+import logging.handlers
 import os
 from pylab import *
 from bivariate.learner.batchbivariate import BatchBivariateLearner
 from bivariate.generator.billmatlabgenerator import *
 from bivariate.evaluator.rootmeaneval import *
+import ConfigParser
+
+logger.config.fileConfig("logconfig.ini")
+
+
 
 DATA_ROOT="/home/ss/Dropbox/TrendMiner/deliverables/year2-18month"\
 					+"/Austrian Data"
@@ -17,6 +24,15 @@ NSTEPS = 20
 
 def prepareExperiment():
 	os.makedirs(EXPERIMENT_ROOT)
+	cp = ConfigParser.ConfigParser(None)
+	cp.read("logconfig.ini")
+	formatterName = cp.get("formatters","keys")
+	sectName = "formatter_%s"%formatterName
+	opts = cp.options(sectName)
+	fs = cp.get(sectName,"format",1)
+	handler = logging.handlers.RotatingFileHandler(os.sep.join([EXPERIMENT_ROOT,"experiment.log"]))
+	handler.setFormatter(logging.Formatter(fs,None))
+	logger.getLogger().addHandler(handler)
 
 def runExperiment():
 	spamsDict = {
@@ -34,11 +50,11 @@ def runExperiment():
 	learner = BatchBivariateLearner(**spamsDict)
 	gen = BillMatlabGenerator(MATLAB_DATA,98,True)
 	evaluator = RootMeanSumSquareEval(learner)
-	for i in range(20):
+	for i in range(35):
+		logger.info("New Item Seen: %d"%i)
 		X,Y = gen.generate()
 		if learner.w is not None and learner.u is not None:
 			loss = evaluator.evaluate(X,Y)
-			logger.info("New Item Seen: %d"%i)
 			logger.info("Loss: %2.5f"%loss)
 			logger.info("W sparcity: %2.2f"%learner._wsparcity())
 			logger.info("U sparcity: %2.2f"%learner._usparcity())
@@ -55,6 +71,9 @@ def runExperiment():
 			# calculate loss of Y for new X
 			pass
 		learner.process(X,Y)
+		loss = evaluator.evaluate(X,Y)
+		logger.info("Loss (post addition): %2.5f"%loss)
 
 if __name__ == '__main__':
+	prepareExperiment()
 	runExperiment()
