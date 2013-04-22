@@ -36,7 +36,7 @@ class BatchBivariateLearner(OnlineLearner):
 		self.Y = None
 		self.intercept = spamsDict['intercept']
 		# self.initStrat = lambda shape: rand(*shape)
-		self.initStrat = lambda shape: ones(shape)*0.1
+		self.initStrat = self.allParams["initStrat"]
 		# self.initStrat = lambda shape: zeros(shape)
 		self.w = None
 		self.u = None
@@ -47,12 +47,23 @@ class BatchBivariateLearner(OnlineLearner):
 		self.allParams["bivar_it0"] = self.allParams.get("bivar_it0",3)
 		self.allParams["bivar_tol"] = self.allParams.get("bivar_tol",1e-3)
 		self.allParams["bivar_max_it"] = self.allParams.get("bivar_max_it",10)
+		self.allParams["init_strat"] = self.allParams.get("initStrat",lambda shape: ones(shape)*0.1)
 	@classmethod
 	def extractSPAMSArgs(cls,params):
 		spamsArgs = inspect.getargspec(spams.fistaFlat)[0]
 		return dict([(key,value)
 			for key,value in params.items() if key in spamsArgs
 		])
+
+	
+	def predict(self,X):
+		nTasks = self.u.shape[1]
+		Ypred = zeros((1,nTasks))
+		for t in range(nTasks):
+			dotproduct = u[:,t:t+1].T.dot(x).dot(w[:,t:t+1])[0,0]
+			if self.bias is not None: dotproduct += bias[0,t]
+			Ypred[0,t] = dotproduct
+		return Ypred
 
 	def process(self,X,Y):
 		if type(X) is list:
@@ -93,13 +104,20 @@ class BatchBivariateLearner(OnlineLearner):
 			bias = ones((1,Y.shape[1]))
 		
 
-		# (W, optim_info) = spams.fistaFlat(
-		# 	self.Y,self.X,W0,True,**self.spamsDict)
+		
 		param = self.spamsDict
 		bivariter = 0
 		Y = np.asfortranarray(Y)
 		Yflat = reshape(self.Y, [multiply(*self.Y.shape),1])
 		Yflat = np.asfortranarray(Yflat)
+		"""
+		We expand Y s.t. the values of Y for each task t 
+		are held in the diagonals of a t x t matrix whose 
+		other values are NaN
+
+		SPAMS solves problems of the form Y - XW where 
+		each
+		"""
 		Yexpanded = ones((multiply(*self.Y.shape),self.Y.shape[1])) * nan
 		for x in range(Y.shape[1]): 
 			ind = x * Y.shape[0]; 
@@ -177,12 +195,6 @@ class BatchBivariateLearner(OnlineLearner):
 				break
 		return sumSSE
 
-	def _wsparcity(self):
-		return self._sparcity(self.w)
-	def _usparcity(self):
-		return self._sparcity(self.u)
-
-	def _sparcity(self,m,thresh=0):
-		return (float((m.toarray()<=thresh).sum())/multiply(*m.shape))
+	
 if __name__ == '__main__':
 	main()
