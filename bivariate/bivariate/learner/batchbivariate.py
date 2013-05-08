@@ -11,7 +11,6 @@ from bivariate.evaluator.sumsquare import SumSquareEval
 # logger = logging.getLogger('bivariate.learners.batchbivariate')
 logging.basicConfig(level="DEBUG")
 		
-
 class BatchBivariateLearner(OnlineLearner):
 	"""
 	For every X,Y pair, add to an existing set of X,Y and relearn the model from
@@ -36,7 +35,7 @@ class BatchBivariateLearner(OnlineLearner):
 		self.Y = None
 		self.intercept = spamsDict['intercept']
 		# self.initStrat = lambda shape: rand(*shape)
-		self.initStrat = self.allParams["initStrat"]
+		self.initStrat = self.allParams.get("initStrat",lambda shape: ones(shape)*0.1)
 		# self.initStrat = lambda shape: zeros(shape)
 		self.w = None
 		self.u = None
@@ -100,8 +99,6 @@ class BatchBivariateLearner(OnlineLearner):
 		U = initU()
 		W = initW()
 		bias = None
-		if self.intercept:
-			bias = ones((1,Y.shape[1]))
 		
 
 		
@@ -126,6 +123,8 @@ class BatchBivariateLearner(OnlineLearner):
 		Yexpanded = np.asfortranarray(Yexpanded)
 		oldSSE = sys.float_info.max
 		ntasks = Y.shape[1]
+		if self.intercept:
+			bias = Y[0:1,:]
 		while True:
 			bivariter += 1
 			# W0 = initW()

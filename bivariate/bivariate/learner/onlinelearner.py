@@ -1,3 +1,4 @@
+from pylab import *
 class OnlineLearner(object):
 	"""
 	An online learner can process novel (X,Y) pairs and predict 
