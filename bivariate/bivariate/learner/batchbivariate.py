@@ -23,10 +23,13 @@ class BatchBivariateLearner(OnlineLearner):
 	def __init__(self, *spamsArgs, **spamsDict):
 		super(BatchBivariateLearner, self).__init__()
 		
-		if spamsDict['loss'] is "square": spamsDict['loss'] = "square-missing"
+		if spamsDict['loss'] is "square": 
+			spamsDict['loss'] = "square-missing"
 		
 		self.spamsArgs = spamsArgs;
-		self.spamsDict = BatchBivariateLearner.extractSPAMSArgs(spamsDict);
+		self.spamsDict = BatchBivariateLearner.extractSPAMSArgs(
+			spamsDict
+		);
 		self.allParams = spamsDict
 		self.initDefaults()
 
@@ -35,7 +38,9 @@ class BatchBivariateLearner(OnlineLearner):
 		self.Y = None
 		self.intercept = spamsDict['intercept']
 		# self.initStrat = lambda shape: rand(*shape)
-		self.initStrat = self.allParams.get("initStrat",lambda shape: ones(shape)*0.1)
+		self.initStrat = self.allParams.get(
+			"initStrat",lambda shape: ones(shape)*0.1
+		)
 		# self.initStrat = lambda shape: zeros(shape)
 		self.w = None
 		self.u = None
@@ -47,6 +52,7 @@ class BatchBivariateLearner(OnlineLearner):
 		self.allParams["bivar_tol"] = self.allParams.get("bivar_tol",1e-3)
 		self.allParams["bivar_max_it"] = self.allParams.get("bivar_max_it",10)
 		self.allParams["init_strat"] = self.allParams.get("initStrat",lambda shape: ones(shape)*0.1)
+	
 	@classmethod
 	def extractSPAMSArgs(cls,params):
 		spamsArgs = inspect.getargspec(spams.fistaFlat)[0]
@@ -111,15 +117,18 @@ class BatchBivariateLearner(OnlineLearner):
 		We expand Y s.t. the values of Y for each task t 
 		are held in the diagonals of a t x t matrix whose 
 		other values are NaN
-
-		SPAMS solves problems of the form Y - XW where 
-		each
 		"""
-		Yexpanded = ones((multiply(*self.Y.shape),self.Y.shape[1])) * nan
+		Yexpanded = ones(
+			(
+				multiply(*self.Y.shape),
+				self.Y.shape[1]
+			)
+		) * nan
 		for x in range(Y.shape[1]): 
 			ind = x * Y.shape[0]; 
 			indnext = (x+1) *Y.shape[0]; 
 			Yexpanded[ind:indnext,x] = Y[:,x];
+		
 		Yexpanded = np.asfortranarray(Yexpanded)
 		oldSSE = sys.float_info.max
 		ntasks = Y.shape[1]
