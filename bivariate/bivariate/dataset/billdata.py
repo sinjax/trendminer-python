@@ -98,4 +98,4 @@ if __name__ == '__main__':
 	)
 	
 	ua,wa = udw.mat(days=(81,81+190))
-	ub,wb = udw.mat(days=(81+190,81+190+4),appendTo=(ua,wa))
+	ub,wb = udw.mat(days=(81+190,81+190+4))
