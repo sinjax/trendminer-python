@@ -3,7 +3,7 @@ import logging as logger
 import os
 from bivariate.learner.batchbivariate import BatchBivariateLearner
 from bivariate.generator.billmatlabgenerator import *
-from bivariate.evaluator.rootmeaneval import *
+from bivariate.evaluator.bilineareval import *
 
 DATA_ROOT="/home/ss/Dropbox/TrendMiner/deliverables/year2-18month"\
 					+"/Austrian Data"

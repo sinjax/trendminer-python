@@ -6,7 +6,7 @@ from onlinelearner import OnlineLearner
 import ipdb;
 import scipy.sparse as ssp
 import inspect
-from bivariate.evaluator.sumsquare import SumSquareEval
+from bivariate.evaluator.bilineareval import SumSquareEval
 
 # logger = logging.getLogger('bivariate.learners.batchbivariate')
 logging.basicConfig(level="DEBUG")

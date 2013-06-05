@@ -6,7 +6,7 @@ import os
 from pylab import *
 from bivariate.learner.batchbivariate import BatchBivariateLearner
 from bivariate.generator.billmatlabgenerator import *
-from bivariate.evaluator.rootmeaneval import *
+from bivariate.evaluator.bilineareval import *
 import ConfigParser
 
 logger.config.fileConfig("logconfig.ini")

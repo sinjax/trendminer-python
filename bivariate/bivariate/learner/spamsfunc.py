@@ -12,12 +12,23 @@ class SpamsFunctions(object):
 			self.init_strat = lambda x,y:zeros((x.shape[1],y.shape[1]))
 
 	def call(self,x,y):
-		raise Exception("undefined")
+		x,y,w0 = self.prepall(x,y)
+		w = self._call(x,y,w0)
+		b = None
+		if self.intercept():
+			b = w[-1:,:]
+			w = w[:-1,:]
+		return w,b
+	def _call(self,x,y,w0):
+		raise Exception("Not defined")
 	def initw(self,x,y):
 		w0 = self.init_strat(x,y)
 		return np.asfortranarray(w0)
+	def intercept(self):
+		return "intercept" in self.params and self.params["intercept"]
+
 	def init(self,x,y):
-		if "intercept" in self.params and self.params["intercept"]:
+		if self.intercept():
 			x = self.hstack(( 
 				x, 
 				ones( (x.shape[0],1) ) 
@@ -39,8 +50,7 @@ class FistaFlat(SpamsFunctions):
 	"""docstring for FistaFlat"""
 	def __init__(self,**xargs):
 		super(FistaFlat, self).__init__(**xargs)
-	def call(self,x,y):
-		x,y,w0 = self.prepall(x,y)
+	def _call(self,x,y,w0):
 		w = spams.fistaFlat(y,x,w0,False,**self.params)
 		return w
 
@@ -50,8 +60,7 @@ class FistaTree(SpamsFunctions):
 		super(FistaTree, self).__init__(**xargs)
 		self.tree = tree
 
-	def call(self,x,y):
-		x,y,w0 = self.prepall(x,y)
+	def _call(self,x,y,w0):
 		w = spams.fistaTree(y,x,w0,self.tree,False,**self.params)
 		return w
 		

@@ -1,6 +1,25 @@
 import inspect
 from pylab import *
 
+def _slice(parts,dir):
+	if dir is "row":
+		return (parts,slice(None,None))
+	else:
+		return (slice(None,None),parts)
+class FoldPart(object):
+	"""Given a particular array extract various parts according to a fold"""
+	def __init__(self, arr, fold, dir="row",valsplit=2./3.):
+		super(FoldPart, self).__init__()
+		self.train = arr[_slice(fold.train(),dir)];
+		self.train_all = arr[_slice(fold.train_all(),dir)];
+		self.test = arr[_slice(fold.test(),dir)];
+		val = fold.val()
+		split = int(len(val) * valsplit)
+		self.val_param = arr[_slice(val[:split],dir)];
+		self.val_it = arr[_slice(val[split:],dir)];
+	
+		
+
 class Fold(object):
 	"""A single fold"""
 	def __init__(self, train, test, validation):
@@ -18,6 +37,8 @@ class Fold(object):
 		return self._test
 	def val(self):
 		return self._validation
+	def parts(self,arr,**xargs):
+		return FoldPart(arr,self,**xargs)
 	def __str__(self):
 		return "\n".join([
 			"tra: %s"%str(self._training),

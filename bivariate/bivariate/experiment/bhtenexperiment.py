@@ -17,14 +17,19 @@ user_file = os.sep.join([data_home,user_mat_file%(start,end)])
 word_file = os.sep.join([data_home,word_mat_file%(start,end)])
 
 folds = tscv.tsfi(ndays,ntest=2)
-
 tasks = billdata.taskvals(task_file).mat()
+user_col, word_col = billdata.suserdayword(user_file,word_file,ndays).mat()
 
 for fold in folds:
-	y_train = tasks[fold.train(),:];
-	y_train_all = tasks[fold.train_all(),:];
-	y_test = tasks[fold.test(),:];
-	val = fold.val()
-	split = len(val)/3
-	y_val_param = tasks[val[:split*2],:];
-	y_val_it = tasks[val[split*2:],:];
+	yparts = fold.parts(tasks)
+	# At this stage the user_col and word_col matrices should be used to
+	# optimise the lambda parameter for user and word learning respectively
+
+	# This is easy for w, simply prepare the user_col matrix as per bill's 
+	# formWordsMatrix function and go fourth
+	# the next part is trickier, a single round of bilinear learning with
+	# this lambda_w must proceed and that value of w1 must be used
+	# to prepare the word_col matrix and find an optimal lambda_u
+
+	# to achieve this it is important that a single step of the bilinear 
+	# learner be exposed. Not a problem in itself.
