@@ -8,6 +8,6 @@ setup(
 	author='Sina Samangooei, Bill Lampos, Trevor',
 	author_email='ss@ecs.soton.ac.uk',
 	packages=find_packages(),
-	install_requires=[],
+	install_requires=["h5py"],
 	test_suite="bivariate.test",
 )

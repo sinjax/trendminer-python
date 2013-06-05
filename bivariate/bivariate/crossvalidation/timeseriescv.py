@@ -5,15 +5,24 @@ class Fold(object):
 	"""A single fold"""
 	def __init__(self, train, test, validation):
 		super(Fold, self).__init__()
-		self.training = train
-		self.test = test
-		self.validation = validation
+		self._training = train
+		self._test = test
+		self._validation = validation
 
+	def train(self):
+		return self._training
+
+	def train_all(self):
+		return self._training + self._validation
+	def test(self):
+		return self._test
+	def val(self):
+		return self._validation
 	def __str__(self):
 		return "\n".join([
-			"tra: %s"%str(self.training),
-			"tes: %s"%str(self.test),
-			"val: %s"%str(self.validation)
+			"tra: %s"%str(self._training),
+			"tes: %s"%str(self._test),
+			"val: %s"%str(self._validation)
 		])
 	def __indices__(self,len):
 		print "bees"
