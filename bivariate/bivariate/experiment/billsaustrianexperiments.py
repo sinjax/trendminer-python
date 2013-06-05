@@ -22,6 +22,7 @@ def runExperiment():
 		"numThreads": 1,
 		"L0": 0.1,
 		"lambda1": 0.001,
+		"it0":100,
 		"max_it":500,
 		"tol":1e-3,
 		"intercept":True, 
