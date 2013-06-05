@@ -6,9 +6,10 @@ MATLAB_FILE_LOC="/home/ss/Dropbox/TrendMiner/deliverables/year2-18month/Austrian
 
 def test_bivariate_model():
 	spamsDict = {
-		"numThreads": 1, "verbose": False,
-		"lambda1": 0.1, "it0": 3, "max_it": 10,
-		"L0":0.1,"tol":1e-3,"intercept" : False, "pos": False
+		"lambda1": 0.1, 
+		"it0": 3, 
+		"max_it": 10,
+		"intercept" : True
 	}
 	spamsDict['compute_gram'] = True
 	spamsDict["loss"] = "square"
