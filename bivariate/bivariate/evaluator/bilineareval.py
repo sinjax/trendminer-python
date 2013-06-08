@@ -7,10 +7,10 @@ class BilinearEvaluator(object):
 	def evaluate(self,X,Y):
 		pass
 
-class SumSquareEval(BilinearEvaluator):
+class SquareEval(BilinearEvaluator):
 	"""Evaluate using the sum square error"""
 	def __init__(self, learner):
-		super(SumSquareEval, self).__init__(learner)
+		super(SquareEval, self).__init__(learner)
 
 	def evaluate(self,X,Y):
 		if type(X) is not list:
@@ -40,20 +40,22 @@ class SumSquareEval(BilinearEvaluator):
 			total+= pow(y[0,t] - dotproduct,2)
 		return total
 
-class MeanSumSquareEval(SumSquareEval):
+class MeanSquareEval(BilinearEvaluator):
 	"""Evaluate using the sum square error"""
 	def __init__(self, learner):
-		super(MeanSumSquareEval, self).__init__(learner)
+		super(MeanSquareEval, self).__init__()
+		self.se = SquareEval(learner)
 
 	def evaluate(self,X,Y):
 		if type(X) is not list:
 			X = [X] 
-		return super(MeanSumSquareEval, self).evaluate(X,Y)/(Y.shape[0] * Y.shape[1])
+		return self.se.evaluate(X,Y)/(Y.shape[0] * Y.shape[1])
 		
-class RootMeanSumSquareEval(MeanSumSquareEval):
+class RootMeanSquareEval(BilinearEvaluator):
 	"""Evaluate using the sum square error"""
 	def __init__(self, learner):
-		super(RootMeanSumSquareEval, self).__init__(learner)
+		super(RootMeanSquareEval, self).__init__(learner)
+		self.mse = SquareEval(learner)
 
 	def evaluate(self,X,Y):
-		return sqrt(super(RootMeanSumSquareEval, self).evaluate(X,Y))
+		return sqrt(self.mse.evaluate(X,Y))

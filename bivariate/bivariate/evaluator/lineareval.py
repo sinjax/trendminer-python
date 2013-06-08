@@ -12,9 +12,12 @@ class SquareEval(LinearEvaluator):
 		super(SquareEval, self).__init__()
 
 	def evaluate(self,X,Y,theta,bias=None):
+		total = 0;
 		for t in range(theta.shape[1]):
 			dotproduct = X.dot(theta[:,t:t+1])[0,0]
+			print dotproduct
 			if bias is not None: dotproduct += bias[0,t]
+			# THE MISSING VALUE!!
 			total+= pow(Y[0,t] - dotproduct,2)
 		return total
 

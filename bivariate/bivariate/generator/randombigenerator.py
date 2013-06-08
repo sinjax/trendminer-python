@@ -30,16 +30,31 @@ class RandomBiGen(object):
 	def currentTasks(self):
 		return self._y
 	
-	def generate(self,n=1,include_wu=False):
-		allret = []
+	def generate(self,n=1,include_wu=False,simple_one=True):
+		all_x = []
+		all_y = []
+		all_w = []
+		all_u = []
 		for x in range(n):
-			ret = [
-				self.currentWords(),
-				self.currentTasks()
-			]
+			# ret = [
+			# 	self.currentWords(),
+			# 	self.currentTasks()
+			# ]
+			all_x += [self.currentWords()]
+			all_y += [self.currentTasks()]
 			if include_wu:
-				ret += [self._w,self._u]
-			allret += [ret]
+				all_w += [self._w]
+				all_u += [self._u]
 			self.nextIndex()
-		return allret
+		if n is 1 and simple_one:
+			ret = [all_x[0],all_y[0]]
+		else:
+			ret = [all_x,all_y]
+		if include_wu:
+			if n is 1 and simple_one:
+				ret = [all_w[0],all_u[0]]
+			else:
+				ret = [all_w,all_u]
+			
+		return ret
 		

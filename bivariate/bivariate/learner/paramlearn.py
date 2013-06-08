@@ -1,5 +1,6 @@
 import spams
 from pylab import *
+import logging;logger = logging.getLogger("root")
 
 class LambdaSearch(object):
 	"""
@@ -20,16 +21,25 @@ class LambdaSearch(object):
 		self.spamsfunc = spamsfunc
 		self.errorfunc = errorfunc
 	
-	def optimise(lambda_rng, x_parts, y_parts):
+	def optimise(self,lambda_rng, x_parts, y_parts):
 		min_err = None
 		min_lambda = None
 		for lmbda in lambda_rng:
 			self.spamsfunc.params['lambda1'] = lmbda
-			theta_new,beta = self.spamsfunc.call(x_parts.train, y_parts.train)
-			err = self.errorfunc.evaluate(x_parts.val_param,y_parts.val_param,theta_new)
+			theta_new,beta = self.spamsfunc.call(
+				x_parts.train, 
+				y_parts.train
+			)
+			err = self.errorfunc.evaluate(
+				x_parts.val_param,
+				y_parts.val_param,
+				theta_new
+			)
+			logger.debug("Lambda = %2.5f, Error = %2.5f"%(lmbda,err)) 
 			if min_err is None or err < min_err:
 				min_err = err
 				min_lambda = lmbda
+		self.spamsfunc.params['lambda1'] = min_lambda
 		return min_lambda
 
 

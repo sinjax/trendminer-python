@@ -1,12 +1,10 @@
 import h5py
 from pylab import *
 import scipy.sparse
-import logging as logger
-import logging.config
 import os
 import scipy.io
 
-logger.config.fileConfig("logconfig.ini")
+
 
 class SparseUserDayWord(object):
 	"""

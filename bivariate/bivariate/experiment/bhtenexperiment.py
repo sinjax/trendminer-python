@@ -1,5 +1,6 @@
 import bivariate.crossvalidation.timeseriescv as tscv
 import bivariate.dataset.billdata as billdata
+
 import os
 
 home = os.environ['HOME']
@@ -21,7 +22,6 @@ tasks = billdata.taskvals(task_file).mat()
 user_col, word_col = billdata.suserdayword(user_file,word_file,ndays).mat()
 
 for fold in folds:
-	yparts = fold.parts(tasks)
 	# At this stage the user_col and word_col matrices should be used to
 	# optimise the lambda parameter for user and word learning respectively
 
