@@ -2,6 +2,7 @@ from IPython import embed
 import spams
 from pylab import *
 import logging;logger = logging.getLogger("root")
+import bivariate.experiment.expstate as es
 
 class LambdaSearch(object):
 	"""
@@ -25,9 +26,16 @@ class LambdaSearch(object):
 	x_parts - the x_parts for this fold, each holds (days*tasks) in the columns
 	y_parts - the y_parts for this fold, holds the Y for each task for each day in the diag
 	"""
-	def optimise(self,spamsfunc, lambda_rng, x_parts, y_parts):
+	def optimise(self,spamsfunc, lambda_rng, x_parts, y_parts,name="opt"):
 		min_err = None
 		min_lambda = None
+		search_state = es.state()["lambdasearch"] = es.state().get("lambdasearch",dict())
+		search_state[name] = dict()
+		search_state = search_state[name]
+		search_state["thetas"] = list()
+		search_state["biases"] = list()
+		search_state["errors"] = list()
+		search_state["lambdas"] = list()
 		for lmbda_i in range(len(lambda_rng)):
 			lmbda = lambda_rng[lmbda_i]
 			logger.debug("... Testing lambda %2.5f (%d/%d)"%(lmbda,lmbda_i,len(lambda_rng)))
@@ -42,6 +50,10 @@ class LambdaSearch(object):
 				theta_new,
 				bias
 			)
+			search_state["thetas"] += [theta_new]
+			search_state["biases"] += [bias]
+			search_state["errors"] += [err]	
+			search_state["lambdas"] += [lmbda]
 			if min_err is None or err < min_err:
 				min_err = err
 				min_lambda = lmbda

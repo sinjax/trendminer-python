@@ -14,7 +14,7 @@ class SpamsFunctions(object):
 			if self.params["loss"] is "square":
 				self.params["loss"] = "square-missing"
 		if not self.init_strat:
-			self.init_strat = lambda x,y:zeros((x.shape[1],y.shape[1]))
+			self.init_strat = lambda x,y:ones((x.shape[1],y.shape[1]))
 
 	def call(self,x,y):
 		logger.debug("Calling %s"%str(self))
@@ -70,6 +70,7 @@ class FistaTree(SpamsFunctions):
 		self.tree = tree
 
 	def _call(self,x,y,w0):
+		embed()
 		w = spams.fistaTree(y,x,w0,self.tree,False,**self.params)
 		return w
 

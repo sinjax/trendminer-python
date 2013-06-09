@@ -1,8 +1,8 @@
 import h5py
 from pylab import *
-import scipy.sparse
+import scipy.sparse as ssp
 import os
-import scipy.io
+import scipy.io as sio
 import logging;logger = logging.getLogger("root")
 from IPython import embed
 
@@ -30,7 +30,7 @@ class SparseUserDayWord(object):
 		super(SparseUserDayWord, self).__init__()
 		self.ndays = ndays
 
-		if type(userCol_in) is scipy.sparse.csc_matrix:
+		if type(userCol_in) is ssp.csc_matrix:
 			logger.debug("Inputs are sparse matricies")
 			self.userCol = userCol_in
 			self.wordCol = wordCol_in
@@ -44,9 +44,9 @@ class SparseUserDayWord(object):
 		logger.debug("User col file: %s"%os.path.basename(userCol_in))
 		logger.debug("Number of days: %d"%ndays)
 		try:
-			self.userCol = scipy.io.loadmat(userCol_in)
+			self.userCol = sio.loadmat(userCol_in)
 			self.userCol = self.userCol[[x for x in self.userCol.keys() if not x.startswith("_")][0]]
-			self.wordCol = scipy.io.loadmat(wordCol_in)
+			self.wordCol = sio.loadmat(wordCol_in)
 			self.wordCol = self.wordCol[[x for x in self.wordCol.keys() if not x.startswith("_")][0]]
 			self.nwords = self.wordCol.shape[1]
 			self.nusers = self.userCol.shape[1] / self.ndays
@@ -67,7 +67,7 @@ class SparseUserDayWord(object):
 
 	@classmethod
 	def loadCSC(cls,data, indices, indptr,shape=None):
-		return scipy.sparse.csc_matrix((data,indices,indptr),shape=shape)
+		return ssp.csc_matrix((data,indices,indptr),shape=shape)
 
 	def list(self,days=None):
 		if not days: days = (0,self.ndays)
@@ -77,7 +77,7 @@ class SparseUserDayWord(object):
 			alldays += [self.mat(days=(day,day+1))]
 		return alldays
 
-	def mat(self,days=None,word_subsample=None):
+	def mat(self,days=None,word_subsample=None,voc=None):
 		def extractFirstLast(days):
 			firstDay = days[0]
 			lastDay = days[1]
@@ -116,7 +116,7 @@ class SparseUserDayWord(object):
 				logger.debug("Creating refined usercol sparse matrix")
 				userCol = SparseUserDayWord.loadCSC(udta,uind,uptr,shape=outputDims)
 				logger.debug("Creating wordCol matrix (via transpose and csc_matrix)")
-				wordCol = scipy.sparse.csc_matrix(userCol.transpose())
+				wordCol = ssp.csc_matrix(userCol.transpose())
 
 			logger.debug("Done creating matrix")
 			
@@ -127,16 +127,13 @@ class SparseUserDayWord(object):
 			else:
 				firstDay,lastDay = extractFirstLast(days)
 				userCol = self.userCol[:,firstDay*self.nusers:lastDay*self.nusers]
-				wordCol = scipy.sparse.csc_matrix(userCol.transpose())
+				wordCol = ssp.csc_matrix(userCol.transpose())
 
-		if word_subsample is not None:
-			nwords = userCol.shape[0]
-			wrds = rand(userCol.shape[0])>(1 - word_subsample)
-			wrds = np.nonzero(wrds)[0]
-			logger.debug("Load complete, subsampling %d words"%wrds.shape)
-
-			userCol = userCol[wrds,:]
-			wordCol = wordCol[:,wrds]
+		if voc is not None:
+			logger.debug("Correcting vocabulary with provided voc")
+			userCol = userCol[voc,:]
+			wordCol = wordCol[:,voc]
+		
 		return userCol,wordCol
 
 class TasksAcrossDays(object):
@@ -149,7 +146,7 @@ class TasksAcrossDays(object):
 	"""
 	def __init__(self, loc, tasks_key="polls_vi_cum", tasks_index="polls_index"):
 		super(TasksAcrossDays, self).__init__()
-		p2 = scipy.io.loadmat(loc);
+		p2 = sio.loadmat(loc);
 		self.yvalues = p2[tasks_key][p2[tasks_index]-1,:]
 		self.yvalues = self.yvalues.reshape(self.yvalues.shape[0],self.yvalues.shape[2])
 
@@ -159,6 +156,37 @@ class TasksAcrossDays(object):
 		else:
 			start,end = days
 			return self.yvalues[start:end,:]
+
+class SpamsTree(object):
+	"""
+	Load bill's version of the carnegy mellon vocabulary tree format
+
+	"""
+	def __init__(self, treefile):
+		super(SpamsTree, self).__init__()
+		logger.debug("Loading spams tree")
+		tree = sio.loadmat(treefile,squeeze_me=False,struct_as_record=False)
+		self.spamsin = tree['inputSPAMS'][0,0]
+
+	def spamsobj(self):
+		tree = {
+			'eta_g': np.array(self.spamsin.nodeWeights.flatten(),dtype=np.float64),
+			'groups' : ssp.csc_matrix(self.spamsin.parentNodes,dtype=bool),
+			'own_variables' :np.array(self.spamsin.firstNodeVars.flatten()-1,dtype=np.int32),
+			'N_own_variables' : np.array(self.spamsin.nodeOwnVarsNum.flatten(),dtype=np.int32)
+		}
+		return tree
+
+class Vocabulary(object):
+	"""Some error occurred with the vocabulary, this corrects it"""
+	def __init__(self, vocloc):
+		super(Vocabulary, self).__init__()
+		logger.debug("Loading corrected vocabulary")
+		voc_matching = sio.loadmat(vocloc,squeeze_me=False,struct_as_record=False)
+		self.voc_index = voc_matching['vocFilteredIndex'][voc_matching['vocPointers_new']]-1
+	def voc(self):
+		return self.voc_index.flatten()
+		
 		
 
 def savesparse(sparsemat, loc, matname="mat"):
@@ -172,10 +200,35 @@ def savesparse(sparsemat, loc, matname="mat"):
 	# ir = g.create_dataset("ir",sparsemat.indices,compression="gzip",compression_opts=3L)
 	# jc = g.create_dataset("jc",sparsemat.indptr,compression="gzip",compression_opts=3L)
 	# f.close()
-	scipy.io.savemat(loc, {matname : sparsemat})
+	sio.savemat(loc, {matname : sparsemat})
 	
 def suserdayword(userCol, wordCol,ndays):
 	return SparseUserDayWord(userCol,wordCol,ndays)
 
 def taskvals(loc,**xargs):
 	return TasksAcrossDays(loc,**xargs)
+
+def voc(loc):
+	return Vocabulary(loc)
+def tree(loc):
+	return SpamsTree(loc)
+
+def subsample(userCol,word_subsample=0.001,user_subsample=0.001,ndays=None):
+
+	nwords = userCol.shape[0]
+	wrds = rand(nwords)>(1 - word_subsample)
+	wrds = np.nonzero(wrds)[0]
+	logger.debug("Load complete, subsampling %d words"%wrds.shape)
+	
+
+	nusers = userCol.shape[1]/ndays
+	usrs = rand(nusers)>(1 - user_subsample)
+	usrs = np.nonzero(usrs.flatten())[0]
+	usrdays = []
+	for x in range(ndays):
+		usrdays += (usrs+(x * nusers)).tolist()
+	userCol = userCol[wrds,:]
+	userCol = userCol[:,usrdays]
+	wordCol = ssp.csc_matrix(userCol.transpose())
+
+	return userCol,wordCol

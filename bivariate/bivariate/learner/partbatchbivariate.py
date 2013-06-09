@@ -9,6 +9,7 @@ from bivariate.evaluator.bilineareval import SquareEval as BiSquareEval
 from bivariate.evaluator.lineareval import SquareEval
 from bivariate.learner.paramlearn import LambdaSearch
 from IPython import embed
+import bivariate.experiment.expstate as es
 
 
 class BatchBivariateLearner(OnlineLearner):
@@ -56,17 +57,30 @@ class BatchBivariateLearner(OnlineLearner):
 		self.setYX(Y,X,Xt)
 		bivariter = 0
 		sumSSE = 0
+		es.state()["iterations"] = list()
+		esiter = es.state()["iterations"]
 		while True:
+			esiterdict = dict()
+			esiterdict["i"] = bivariter
 			logger.debug("Starting iteration: %d"%bivariter)
 			bivariter += 1
 			U = self.u
-			W,w_bias = self.calculateW(U)
+			W,w_bias,err = self.calculateW(U)
+			esiterdict["w"] = W
+			esiterdict["w_bias"] = w_bias
+			esiterdict["w_test_err"] = err
 			W = ssp.csc_matrix(W)
-			U,u_bias = self.calculateU(W)
+			U,u_bias,err = self.calculateU(W)
+			esiterdict["u"] = U
+			esiterdict["u_bias"] = u_bias
+			esiterdict["u_test_err"] = err
 			self.u = ssp.csc_matrix(U)
 			self.w = W
 			self.w_bias = w_bias
 			self.u_bias = u_bias
+
+
+			esiter += [esiterdict]
 			if self.allParams['bivar_max_it'] <= bivariter:
 				break
 		return sumSSE
@@ -86,7 +100,7 @@ class BatchBivariateLearner(OnlineLearner):
 			BatchBivariateLearner._calculateVprime,u
 		)
 		logger.debug("... Optimising lambda for w")
-		ls.optimise(self.w_func,lambda_w,Vprime_parts,Yparts)
+		ls.optimise(self.w_func,lambda_w,Vprime_parts,Yparts,name="w")
 		logger.debug("... Calculating w with optimal lambda")
 		w,bias = self.w_func.call(Vprime_parts.train_all,Yparts.train_all)
 		w = ssp.csc_matrix(w)
@@ -95,7 +109,7 @@ class BatchBivariateLearner(OnlineLearner):
 			BatchBivariateLearner._calculateDprime,w,u.shape
 		)
 		logger.debug("... Optimising lambda for u")
-		ls.optimise(self.u_func, lambda_u, Dprime_parts, Yparts)
+		ls.optimise(self.u_func, lambda_u, Dprime_parts, Yparts,name="u")
 		return [(u,self.u_func.params['lambda1']),(w,self.w_func.params['lambda1'])]
 
 	
@@ -130,13 +144,17 @@ class BatchBivariateLearner(OnlineLearner):
 		if U is None: U = self.u
 		Vprime = BatchBivariateLearner._calculateVprime(self.X,U)
 		logger.debug("Calling w_func: %s"%self.w_func)
-		return self.w_func.call(Vprime,self.Yexpanded)
+		W,w_bias = self.w_func.call(Vprime,self.Yexpanded)
+		err = self.part_eval.evaluate(Vprime,self.Yexpanded,W,w_bias)
+		return W,w_bias,err
 	
 	def calculateU(self,W=None):
 		if W is None: W = self.w
 		Dprime = BatchBivariateLearner._calculateDprime(self.X,W,self.u.shape)
 		logger.debug("Calling u_func: %s"%self.u_func)
-		return self.u_func.call(Dprime,self.Yexpanded)
+		U,u_bias = self.u_func.call(Dprime,self.Yexpanded)
+		err = self.part_eval.evaluate(Dprime,self.Yexpanded,U,u_bias)
+		return U,u_bias,err
 
 	@classmethod
 	def _expandY(cls,Y):

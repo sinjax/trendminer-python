@@ -1,6 +1,7 @@
 import logging; 
 import logging.config
-
-logging.config.fileConfig("logconfig.ini")
-logger = logging.getLogger("root")
-logger.debug("Logger prepared!")
+import os
+if os.path.exists("logconfig.ini"): 
+	logging.config.fileConfig("logconfig.ini")
+	logger = logging.getLogger("root")
+	logger.debug("Logger prepared!")
