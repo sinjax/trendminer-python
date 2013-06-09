@@ -71,43 +71,34 @@ class BatchBivariateLearner(OnlineLearner):
 				break
 		return sumSSE
 
-	def optimise_lambda(self, fold, lambda_w, lambda_u, Y, X=None, Xt=None):
-		yparts = fold.parts(Y).apply(BatchBivariateLearner._expandY)
-		
-		X,Xt = BatchBivariateLearner._initX(X,Xt)
-		ntasks = Y.shape[1]
-		ndays = Y.shape[0]
-		nusers = X.shape[1]/ndays
+	def optimise_lambda(self, lambda_w, lambda_u, Yparts, Xparts):
+		logger.debug("... expanding Yparts")
+		Yparts = Yparts.apply(BatchBivariateLearner._expandY)
 
-		def exp_slice_func(dp,dir):
-			parts = []
-			for d in dp: 
-				dslc = BatchBivariateLearner._rows_for_day(d,ntasks)
-				drng = range(dslc.start,dslc.stop)
-				parts += [x for x in drng]
-			if dir is "row":
-				return (parts,slice(None,None))
-			else:
-				return (slice(None,None),parts)
+		ls = LambdaSearch(self.part_eval)
+		ntasks = Yparts.train_all.shape[1]
+		ndays = Yparts.train_all.shape[0]/ntasks
+		nusers = Xparts.train_all.shape[1]/ndays
 
 		u = ssp.csc_matrix(ones((nusers,ntasks)))
-		Vprime = BatchBivariateLearner._calculateVprime(X,u,ndays)
-		Vprime_parts = fold.parts(Vprime,slicefunc=exp_slice_func)
-		
-
-		w_ls = LambdaSearch(self.w_func,self.part_eval)
-		w_ls.optimise(lambda_w,Vprime_parts,yparts)
-		w,bias = self.w_func.call(Vprime_parts.train_all,yparts.train_all)
+		logger.debug("... Preparing VPrime")
+		Vprime_parts = Xparts.apply(
+			BatchBivariateLearner._calculateVprime,u
+		)
+		logger.debug("... Optimising lambda for w")
+		ls.optimise(self.w_func,lambda_w,Vprime_parts,Yparts)
+		logger.debug("... Calculating w with optimal lambda")
+		w,bias = self.w_func.call(Vprime_parts.train_all,Yparts.train_all)
 		w = ssp.csc_matrix(w)
-		Dprime = BatchBivariateLearner._calculateDprime(X,w,ndays)
-		Dprime_parts = fold.parts(Dprime,slicefunc=exp_slice_func)
-
-		u_ls = LambdaSearch(self.u_func,self.part_eval)
-		u_ls.optimise(lambda_u,Vprime_parts,yparts)
-		u = self.u_func.call(Dprime_parts.train_all,yparts.train_all)
-
+		logger.debug("... Preparing Dprime")
+		Dprime_parts = Xparts.apply(
+			BatchBivariateLearner._calculateDprime,w,u.shape
+		)
+		logger.debug("... Optimising lambda for u")
+		ls.optimise(self.u_func, lambda_u, Dprime_parts, Yparts)
 		return [(u,self.u_func.params['lambda1']),(w,self.w_func.params['lambda1'])]
 
+	
 	"""
 	The number of tasks is the columns of Y
 	The number of days is the rows of Y
@@ -121,6 +112,7 @@ class BatchBivariateLearner(OnlineLearner):
 
 		self.X = X
 		self.Xt = Xt
+
 		
 		self.nusers = X.shape[1]/Y.shape[0]
 		self.nwords = X.shape[0]
@@ -136,13 +128,13 @@ class BatchBivariateLearner(OnlineLearner):
 
 	def calculateW(self,U=None):
 		if U is None: U = self.u
-		Vprime = BatchBivariateLearner._calculateVprime(self.X,U,self.ndays)
+		Vprime = BatchBivariateLearner._calculateVprime(self.X,U)
 		logger.debug("Calling w_func: %s"%self.w_func)
 		return self.w_func.call(Vprime,self.Yexpanded)
 	
 	def calculateU(self,W=None):
 		if W is None: W = self.w
-		Dprime = BatchBivariateLearner._calculateDprime(self.X,W,self.ndays)
+		Dprime = BatchBivariateLearner._calculateDprime(self.X,W,self.u.shape)
 		logger.debug("Calling u_func: %s"%self.u_func)
 		return self.u_func.call(Dprime,self.Yexpanded)
 
@@ -181,14 +173,38 @@ class BatchBivariateLearner(OnlineLearner):
 	@classmethod
 	def _cols_for_day(cls,d,nusers):
 		return slice(d*nusers,(d+1)*nusers)
+	
 	@classmethod
 	def _rows_for_day(cls,d,ntasks):
 		return slice(d*ntasks,(d+1)*ntasks)
 
 	@classmethod
-	def _calculateVprime(cls, X, U, ndays):
-		logger.debug("Preparing Vprime (X . U)")
-		nu = X.shape[1]/ndays
+	def _user_day_slice(cls,nusers):
+		def exp_slice_func(dp,dir):
+			parts = []
+			for d in dp: 
+				dslc = BatchBivariateLearner._cols_for_day(d,nusers)
+				drng = range(dslc.start,dslc.stop)
+				parts += [x for x in drng]
+			if dir is "row":
+				return (parts,slice(None,None))
+			else:
+				return (slice(None,None),parts)
+		return exp_slice_func
+
+	"""
+	Expects an X such that users are held in the columns
+	and a U which weights each user for each task
+	"""
+	@classmethod
+	def _calculateVprime(cls, X, U):
+		# logger.debug("Preparing Vprime (X . U)")
+		nu = U.shape[0]
+		ndays = X.shape[1]/nu
+		# stack in the columns the (word,days) matricies for each task
+		# so the dimensions are (word,days*tasks).
+		# we then transpose such that the days*tasks are in the columns
+		# and the words in the rows resulting in (days*tasks,word)
 		return ssp.hstack([
 			# For every day, extract the day's sub matrix of user/word weights
 			# weight each user's words by the user's weight
@@ -200,10 +216,17 @@ class BatchBivariateLearner(OnlineLearner):
 			for t in range(U.shape[1])
 		],format="csr").transpose()
 
+	"""
+	Expects an X such that users are held in the columns
+	and a W which weights each word for each task
+	"""
 	@classmethod
-	def _calculateDprime(cls, X, W, ndays):
-		logger.debug("Preparing Dprime (X . W)")
-		nu = X.shape[1]/ndays
+	def _calculateDprime(cls, X, W, Ushape):
+		# logger.debug("Preparing Dprime (X . W)")
+		nu = Ushape[0]
+		ndays = X.shape[1]/nu
+		# stack in the columns the (days,user) matricies for each task
+		# so the dimensions are (days*tasks,user).
 		return ssp.vstack([
 			# For every day, extract the day's sub matrix of 
 			# user/word weights but now transpose
@@ -215,3 +238,12 @@ class BatchBivariateLearner(OnlineLearner):
 			],format="csc").transpose()
 			for t in range(W.shape[1])
 		],format="csc")
+
+	@classmethod
+	def XYparts(self,fold,X,Y):
+		Yparts = fold.parts(Y)
+		Xparts = fold.parts(
+			X,dir="col",
+			slicefunc=BatchBivariateLearner._user_day_slice(X.shape[1]/Y.shape[0])
+		)
+		return Xparts,Yparts

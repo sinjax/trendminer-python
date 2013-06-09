@@ -1,3 +1,5 @@
+from IPython import embed
+from pylab import *
 class LinearEvaluator(object):
 	"""Evaluate a bilinear learner"""
 	def __init__(self):
@@ -13,12 +15,11 @@ class SquareEval(LinearEvaluator):
 
 	def evaluate(self,X,Y,theta,bias=None):
 		total = 0;
-		for t in range(theta.shape[1]):
-			dotproduct = X.dot(theta[:,t:t+1])[0,0]
-			print dotproduct
-			if bias is not None: dotproduct += bias[0,t]
-			# THE MISSING VALUE!!
-			total+= pow(Y[0,t] - dotproduct,2)
+		dotproduct = X.dot(theta)
+		if bias is not None: dotproduct += bias
+		diff = Y - dotproduct
+		diff = diff[~np.isnan(diff)]
+		total = pow(diff[~np.isnan(diff)],2).sum()
 		return total
 
 class MeanEval(SquareEval):

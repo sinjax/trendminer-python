@@ -2,6 +2,7 @@ import spams
 from pylab import *
 import scipy.sparse as ssp
 from IPython import embed
+import logging;logger = logging.getLogger("root")
 
 class SpamsFunctions(object):
 	"""Setup a spams function and call it"""
@@ -16,6 +17,8 @@ class SpamsFunctions(object):
 			self.init_strat = lambda x,y:zeros((x.shape[1],y.shape[1]))
 
 	def call(self,x,y):
+		logger.debug("Calling %s"%str(self))
+		logger.debug("With x.shape=%s, y.shape=%s"%(str(x.shape),str(y.shape)))
 		x,y,w0 = self.prepall(x,y)
 		w = self._call(x,y,w0)
 		b = None

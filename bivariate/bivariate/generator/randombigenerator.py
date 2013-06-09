@@ -52,9 +52,9 @@ class RandomBiGen(object):
 			ret = [all_x,all_y]
 		if include_wu:
 			if n is 1 and simple_one:
-				ret = [all_w[0],all_u[0]]
+				ret += [all_w[0],all_u[0]]
 			else:
-				ret = [all_w,all_u]
+				ret += [all_w,all_u]
 			
 		return ret
 		

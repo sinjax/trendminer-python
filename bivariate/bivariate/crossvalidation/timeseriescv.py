@@ -6,10 +6,12 @@ def _slice(parts,dir):
 		return (parts,slice(None,None))
 	else:
 		return (slice(None,None),parts)
+
 class FoldPart(object):
 	"""Given a particular array extract various parts according to a fold"""
 	def __init__(self, arr, fold, dir="row",valsplit=2./3.,slicefunc=_slice):
 		super(FoldPart, self).__init__()
+		if arr is None: return
 		self.train = arr[slicefunc(fold.train(),dir)];
 		self.train_all = arr[slicefunc(fold.train_all(),dir)];
 		self.test = arr[slicefunc(fold.test(),dir)];
@@ -17,8 +19,17 @@ class FoldPart(object):
 		split = int(len(val) * valsplit)
 		self.val_param = arr[slicefunc(val[:split],dir)];
 		self.val_it = arr[slicefunc(val[split:],dir)];
+		
 	
 	def apply(self,fnc,*args,**xargs):
+		fp = FoldPart(None,None)
+		fp.train = fnc(self.train,*args,**xargs)
+		fp.train_all = fnc(self.train_all,*args,**xargs)
+		fp.test = fnc(self.test,*args,**xargs)
+		fp.val_param = fnc(self.val_param,*args,**xargs)
+		fp.val_it = fnc(self.val_it,*args,**xargs)
+		return fp
+	def apply_inplace(self,fnc,*args,**xargs):
 		self.train = fnc(self.train,*args,**xargs)
 		self.train_all = fnc(self.train_all,*args,**xargs)
 		self.test = fnc(self.test,*args,**xargs)

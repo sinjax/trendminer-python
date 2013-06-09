@@ -3,7 +3,8 @@ from pylab import *
 import scipy.sparse
 import os
 import scipy.io
-
+import logging;logger = logging.getLogger("root")
+from IPython import embed
 
 
 class SparseUserDayWord(object):
@@ -30,7 +31,7 @@ class SparseUserDayWord(object):
 		self.ndays = ndays
 
 		if type(userCol_in) is scipy.sparse.csc_matrix:
-			logging.debug("Inputs are sparse matricies")
+			logger.debug("Inputs are sparse matricies")
 			self.userCol = userCol_in
 			self.wordCol = wordCol_in
 			self.nwords = self.wordCol.shape[1]
@@ -39,9 +40,9 @@ class SparseUserDayWord(object):
 			return
 		if type(userCol_in) is not str:
 			raise Exception("The inputs must be either csc_matrix sparse matrix or strings to files containing such matricies")
-		logging.debug("Word col file: %s"%os.path.basename(wordCol_in))
-		logging.debug("User col file: %s"%os.path.basename(userCol_in))
-		logging.debug("Number of days: %d"%ndays)
+		logger.debug("Word col file: %s"%os.path.basename(wordCol_in))
+		logger.debug("User col file: %s"%os.path.basename(userCol_in))
+		logger.debug("Number of days: %d"%ndays)
 		try:
 			self.userCol = scipy.io.loadmat(userCol_in)
 			self.userCol = self.userCol[[x for x in self.userCol.keys() if not x.startswith("_")][0]]
@@ -49,13 +50,13 @@ class SparseUserDayWord(object):
 			self.wordCol = self.wordCol[[x for x in self.wordCol.keys() if not x.startswith("_")][0]]
 			self.nwords = self.wordCol.shape[1]
 			self.nusers = self.userCol.shape[1] / self.ndays
-			logging.debug("Using loadmat")
+			logger.debug("Using loadmat")
 			self.mode = 0
 			return
 		except Exception, e:
 			print e
 			self.mode = 1
-		logging.debug("Using h5py")
+		logger.debug("Using h5py")
 		self.wordColF = h5py.File(wordCol_in).values()[0]
 		self.nwords = self.wordColF['jc'].shape[0]-1
 		self.userColF = h5py.File(userCol_in).values()[0]
@@ -76,11 +77,13 @@ class SparseUserDayWord(object):
 			alldays += [self.mat(days=(day,day+1))]
 		return alldays
 
-	def mat(self,days=None):
+	def mat(self,days=None,word_subsample=None):
 		def extractFirstLast(days):
 			firstDay = days[0]
 			lastDay = days[1]
 			return firstDay,lastDay
+		wordCol = None
+		userCol = None
 		if self.mode is 1:
 			wordCol = None
 			userCol = None
@@ -101,11 +104,11 @@ class SparseUserDayWord(object):
 			if days:
 				firstDay,lastDay = extractFirstLast(days)
 
-				logging.debug("Extracting days: %s -> %s"%(firstDay,lastDay))
+				logger.debug("Extracting days: %s -> %s"%(firstDay,lastDay))
 				expectedCols = self.nusers * (lastDay - firstDay)
 				# output must be self.nwords x expectedCols
 				outputDims = (self.nwords,expectedCols)
-				logging.debug("Expected dimensions: %s"%str(outputDims))
+				logger.debug("Expected dimensions: %s"%str(outputDims))
 				uptr = array(self.userColF['jc'][firstDay*self.nusers:(lastDay*self.nusers)+1],dtype=int32)
 				udta = array(self.userColF['data'][uptr[0]:uptr[-1]],dtype=float64)
 				uind = array(self.userColF['ir'][uptr[0]:uptr[-1]],dtype=int32)
@@ -115,16 +118,26 @@ class SparseUserDayWord(object):
 				logger.debug("Creating wordCol matrix (via transpose and csc_matrix)")
 				wordCol = scipy.sparse.csc_matrix(userCol.transpose())
 
-			logging.debug("Done creating matrix")
-			return (userCol,wordCol)
+			logger.debug("Done creating matrix")
+			
 		elif self.mode is 0:
 			if days is None:
-				return (self.userCol,self.wordCol)
+				userCol = self.userCol
+				wordCol = self.wordCol
 			else:
 				firstDay,lastDay = extractFirstLast(days)
 				userCol = self.userCol[:,firstDay*self.nusers:lastDay*self.nusers]
 				wordCol = scipy.sparse.csc_matrix(userCol.transpose())
-				return userCol,wordCol
+
+		if word_subsample is not None:
+			nwords = userCol.shape[0]
+			wrds = rand(userCol.shape[0])>(1 - word_subsample)
+			wrds = np.nonzero(wrds)[0]
+			logger.debug("Load complete, subsampling %d words"%wrds.shape)
+
+			userCol = userCol[wrds,:]
+			wordCol = wordCol[:,wrds]
+		return userCol,wordCol
 
 class TasksAcrossDays(object):
 	"""
@@ -138,6 +151,7 @@ class TasksAcrossDays(object):
 		super(TasksAcrossDays, self).__init__()
 		p2 = scipy.io.loadmat(loc);
 		self.yvalues = p2[tasks_key][p2[tasks_index]-1,:]
+		self.yvalues = self.yvalues.reshape(self.yvalues.shape[0],self.yvalues.shape[2])
 
 	def mat(self,days=None):
 		if not days:
