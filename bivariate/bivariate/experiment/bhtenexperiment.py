@@ -25,11 +25,9 @@ def experiment(o):
 	logger.info("Reading initial data")
 	start = o["start"];ndays = o["ndays"];end = start + ndays
 	folds = tscv.tsfi(ndays,ntest=o['f_ntest'],nvalidation=o['f_nval'],ntraining=o['f_ntrain'])
-	logger.info("...Reading task data")
+	
 	tasks = billdata.taskvals(o["task_file"])
 	ndays_total = tasks.yvalues.shape[0]
-	tasks = tasks.mat(days=(start,end))
-	tree = billdata.tree(o["tree_file"]).spamsobj()
 	if "voc_file" in o and not o["word_subsample"] < 1:
 		logger.info("...Reading vocabulary")
 		voc = billdata.voc(o["voc_file"]).voc()
@@ -40,6 +38,10 @@ def experiment(o):
 	user_col, word_col = billdata.suserdayword(
 		o["user_file"],ndays_total,nwords=billdata.count_cols_h5(o["word_file"])
 	).mat(days=(start,end),voc=voc)
+	logger.info("...Reading task data")
+	tasks = tasks.mat(days=(start,end))
+	logger.info("...Reading tree file")
+	tree = billdata.tree(o["tree_file"]).spamsobj()
 
 	if o["word_subsample"] < 1 or o["user_subsample"] < 1:
 		user_col=billdata.subsample(user_col,word_subsample=o["word_subsample"],user_subsample=o["user_subsample"],ndays=ndays)

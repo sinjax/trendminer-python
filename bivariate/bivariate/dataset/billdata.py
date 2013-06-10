@@ -151,7 +151,8 @@ class SparseUserDayWord(object):
 		if voc is not None:
 			logger.debug("Correcting vocabulary with provided voc")
 			logger.debug("Turning usercol into a row matrix briefly")
-			userCol = userCol.tocsr()[voc,:].tocsc()
+			# userCol = userCol.tocsr()[voc,:].tocsc()
+			userCol = userCol[voc,:]
 			# logger.debug("Selecting voc words")
 			# userCol = userCol[voc,:]
 			# logger.debug("Turning user col back to column matrix")
