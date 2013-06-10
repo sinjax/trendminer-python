@@ -5,8 +5,8 @@ import logging;logger = logging.getLogger("root")
 from onlinelearner import OnlineLearner
 import scipy.sparse as ssp
 import inspect
-from bivariate.evaluator.bilineareval import SquareEval as BiSquareEval
-from bivariate.evaluator.lineareval import SquareEval
+from bivariate.evaluator.bilineareval import MeanSquareEval as BiMeanSquareEval
+from bivariate.evaluator.lineareval import MeanEval
 from bivariate.learner.paramlearn import LambdaSearch
 from IPython import embed
 import bivariate.experiment.expstate as es
@@ -34,8 +34,8 @@ class BatchBivariateLearner(OnlineLearner):
 		self.w_bias = None
 		self.u_bias = None
 		self.bias = None
-		self.change_eval = BiSquareEval(self)
-		self.part_eval = SquareEval()
+		self.change_eval = BiMeanSquareEval(self)
+		self.part_eval = MeanEval()
 		self.w_func = w_spams_func
 		self.u_func = u_spams_func
 	
@@ -53,24 +53,24 @@ class BatchBivariateLearner(OnlineLearner):
 	then iterating through bivar_max_it iterations of calling
 	calculateU and calculateW
 	"""
-	def process(self,Y,X=None,Xt=None):
+	def process(self,Y,X=None,Xt=None,tests=None):
 		self.setYX(Y,X,Xt)
 		bivariter = 0
 		sumSSE = 0
-		es.state()["iterations"] = list()
-		esiter = es.state()["iterations"]
+		esiter = list()
+		es.state()["iterations"] = esiter
 		while True:
 			esiterdict = dict()
 			esiterdict["i"] = bivariter
 			logger.debug("Starting iteration: %d"%bivariter)
 			bivariter += 1
 			U = self.u
-			W,w_bias,err = self.calculateW(U)
+			W,w_bias,err = self.calculateW(U,tests=tests)
 			esiterdict["w"] = W
 			esiterdict["w_bias"] = w_bias
 			esiterdict["w_test_err"] = err
 			W = ssp.csc_matrix(W)
-			U,u_bias,err = self.calculateU(W)
+			U,u_bias,err = self.calculateU(W,tests=tests)
 			esiterdict["u"] = U
 			esiterdict["u_bias"] = u_bias
 			esiterdict["u_test_err"] = err
@@ -140,21 +140,37 @@ class BatchBivariateLearner(OnlineLearner):
 		self.u = ssp.csc_matrix(ones((self.nusers,self.ntasks)))
 		self.w = ssp.csc_matrix(zeros((self.nwords,self.ntasks)))
 
-	def calculateW(self,U=None):
+	def calculateW(self,U=None,tests=None):
 		if U is None: U = self.u
 		Vprime = BatchBivariateLearner._calculateVprime(self.X,U)
 		logger.debug("Calling w_func: %s"%self.w_func)
 		W,w_bias = self.w_func.call(Vprime,self.Yexpanded)
 		err = self.part_eval.evaluate(Vprime,self.Yexpanded,W,w_bias)
-		return W,w_bias,err
+		testerr = {"train_all":err}
+		if tests is not None:
+			for testName,(testX,testY) in tests.items():
+				testerr[testName] = self.part_eval.evaluate(
+					self._calculateVprime(testX,U),
+					self._expandY(testY),
+					W,w_bias
+				)
+		return W,w_bias,testerr
 	
-	def calculateU(self,W=None):
+	def calculateU(self,W=None,tests=None):
 		if W is None: W = self.w
 		Dprime = BatchBivariateLearner._calculateDprime(self.X,W,self.u.shape)
 		logger.debug("Calling u_func: %s"%self.u_func)
 		U,u_bias = self.u_func.call(Dprime,self.Yexpanded)
 		err = self.part_eval.evaluate(Dprime,self.Yexpanded,U,u_bias)
-		return U,u_bias,err
+		testerr = {"train_all":err}
+		if tests is not None:
+			for testName,(testX,testY) in tests.items():
+				testerr[testName] = self.part_eval.evaluate(
+					self._calculateDprime(testX,W,self.u.shape),
+					self._expandY(testY),
+					U,u_bias
+				)
+		return U,u_bias,testerr
 
 	@classmethod
 	def _expandY(cls,Y):

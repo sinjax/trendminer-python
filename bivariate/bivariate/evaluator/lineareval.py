@@ -20,17 +20,18 @@ class SquareEval(LinearEvaluator):
 		diff = Y - dotproduct
 		diff = diff[~np.isnan(diff)]
 		total = pow(diff[~np.isnan(diff)],2).sum()
-		return total
+		dotproduct[np.isnan(Y)] = 0
+		return total,dotproduct
 
 class MeanEval(SquareEval):
 	"""The SquareEval divided by the total number of Ys (i.e. tasks and days)
 	being estimated"""
-	def __init__(self, arg):
+	def __init__(self):
 		super(MeanEval, self).__init__()
 
 	def evaluate(self,X,Y,theta,bias=None):
-		err = super(MeanEval,self).evaluate(X,Y,theta,bias)
-		return err / (Y.shape[1] * Y.shape[0])
+		err,dotproduct = super(MeanEval,self).evaluate(X,Y,theta,bias)
+		return err / Y[~np.isnan(Y)].size,dotproduct
 
 class RootMeanEval(MeanEval):
 	"""The square root of the MeanEval"""
@@ -38,8 +39,8 @@ class RootMeanEval(MeanEval):
 		super(RootMeanEval, self).__init__()
 
 	def evaluate(self,X,Y,theta,bias=None):
-		err = super(RootMeanEval,self).evaluate(X,Y,theta,bias)
-		return sqrt(err) 
+		err,dotproduct = super(RootMeanEval,self).evaluate(X,Y,theta,bias)
+		return sqrt(err),dotproduct
 		
 		
 		

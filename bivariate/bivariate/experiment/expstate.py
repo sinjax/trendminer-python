@@ -4,6 +4,14 @@ import shutil
 
 _singleton = None
 
+class FakeDict(dict):
+	"""docstring for FakeDict"""
+	def __init__(self):
+		super(FakeDict, self).__init__()
+	def __setitem__(self,key,value):
+		# do nothing!
+		pass
+		
 class ExperimentState(object):
 	"""
 	An experiment state can hold variables in a state, flush
@@ -15,17 +23,21 @@ class ExperimentState(object):
 	The root of all the states must be given wherein
 	a .state directory is created and filed
 	"""
-	def __init__(self, root):
+	def __init__(self, root,fake=False):
 		super(ExperimentState, self).__init__()
 		self.state_root = os.sep.join([root,".state"])
 		self._currentState = None
 		self._currentStateName = None
+		self._fake = fake
 		if not os.path.exists(self.state_root): 
 			os.makedirs(self.state_root)
 
 
 	def nextState(self,name):
-		self._currentState = dict()
+		if not self._fake:
+			self._currentState = dict()
+		else:
+			self._currentState = FakeDict()
 		self._currentStateName = name
 
 	def function(self):
@@ -48,17 +60,16 @@ class ExperimentState(object):
 		name = stateF[:-4]
 		return name,np.load(full).tolist()
 
-def exp(root="./"):
+def exp(root="./",fake=False):
 	global _singleton
 	if _singleton is None: 
-		_singleton = ExperimentState(root)
+		_singleton = ExperimentState(root,fake=fake)
 	return _singleton
 
 def state(state=None):
 	if state is None and exp()._currentStateName is None:
 		raise Exception("No state has been specified")
 	if state is not None and exp()._currentStateName is not state:
-		print "switching state to: %s"%state
 		exp().nextState(state)
 	return exp()._currentState
 

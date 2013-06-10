@@ -43,7 +43,7 @@ class SquareEval(BilinearEvaluator):
 class MeanSquareEval(BilinearEvaluator):
 	"""Evaluate using the sum square error"""
 	def __init__(self, learner):
-		super(MeanSquareEval, self).__init__()
+		super(MeanSquareEval, self).__init__(learner)
 		self.se = SquareEval(learner)
 
 	def evaluate(self,X,Y):

@@ -6,6 +6,9 @@ import scipy.io as sio
 import logging;logger = logging.getLogger("root")
 from IPython import embed
 
+def count_cols_h5(f):
+	f = h5py.File(f).values()[0]
+	return f['jc'].shape[0]-1
 
 class SparseUserDayWord(object):
 	"""
@@ -25,45 +28,57 @@ class SparseUserDayWord(object):
 				 sparse matrix or loadmat-able sparse matrix or hdf5 sparse matrix from matlab
 	ndays - So the number of users can be decerned, the number of days this data
 			represents must be told
+	nwords - So the sparse matricies don't have to be loaded in their entierty the number of words is needed
 	"""
-	def __init__(self, userCol_in, wordCol_in, ndays):
+	def __init__(self, userCol_in, wordCol_in, ndays,nwords=None):
 		super(SparseUserDayWord, self).__init__()
 		self.ndays = ndays
-
+		self.loadWordCol = False
+		if wordCol_in is None:
+			self.generateWordCol = False
+		else:
+			self.generateWordCol = True
+			if os.path.exists(wordCol_in):
+				self.loadWordCol = True
 		if type(userCol_in) is ssp.csc_matrix:
 			logger.debug("Inputs are sparse matricies")
 			self.userCol = userCol_in
-			self.wordCol = wordCol_in
-			self.nwords = self.wordCol.shape[1]
+			if self.generateWordCol and type(wordCol_in) is ssp.csc_matrix: 
+				self.wordCol = wordCol_in
+			self.nwords = self.userCol.shape[0]
 			self.nusers = self.userCol.shape[1] / self.ndays
 			self.mode = 0
 			return
 		if type(userCol_in) is not str:
 			raise Exception("The inputs must be either csc_matrix sparse matrix or strings to files containing such matricies")
-		logger.debug("Word col file: %s"%os.path.basename(wordCol_in))
+		if self.loadWordCol:
+			logger.debug("Word col file: %s"%os.path.basename(wordCol_in))
 		logger.debug("User col file: %s"%os.path.basename(userCol_in))
 		logger.debug("Number of days: %d"%ndays)
 		try:
 			self.userCol = sio.loadmat(userCol_in)
 			self.userCol = self.userCol[[x for x in self.userCol.keys() if not x.startswith("_")][0]]
-			self.wordCol = sio.loadmat(wordCol_in)
-			self.wordCol = self.wordCol[[x for x in self.wordCol.keys() if not x.startswith("_")][0]]
-			self.nwords = self.wordCol.shape[1]
+			if self.loadWordCol:
+				self.wordCol = sio.loadmat(wordCol_in)
+				self.wordCol = self.wordCol[[x for x in self.wordCol.keys() if not x.startswith("_")][0]]
+			self.nwords = self.userCol.shape[0]
 			self.nusers = self.userCol.shape[1] / self.ndays
 			logger.debug("Using loadmat")
 			self.mode = 0
 			return
 		except Exception, e:
-			print e
 			self.mode = 1
 		logger.debug("Using h5py")
-		self.wordColF = h5py.File(wordCol_in).values()[0]
-		self.nwords = self.wordColF['jc'].shape[0]-1
+		if self.loadWordCol:
+			self.wordColF = h5py.File(wordCol_in).values()[0]
+			self.nwords = self.wordColF['jc'].shape[0]-1
+		else:
+			if nwords is None: raise Exception("If the word file is not provided, then the number of words must be provided")
+			self.nwords = nwords
 		self.userColF = h5py.File(userCol_in).values()[0]
 		
 		self.nusers = (self.userColF['jc'].shape[0] -1 ) / self.ndays
 		
-
 
 	@classmethod
 	def loadCSC(cls,data, indices, indptr,shape=None):
@@ -89,18 +104,21 @@ class SparseUserDayWord(object):
 			userCol = None
 			if days is None:
 				# Load everything
-				logger.debug("Loading entire word column matrix")
-				wordCol = SparseUserDayWord.loadCSC(
-					array(self.wordColF['data'],dtype=float32),
-					array(self.wordColF['ir'],dtype=int32),
-					array(self.wordColF['jc'],dtype=int32)
-				)
+				if self.loadWordCol:
+					logger.debug("Loading entire word column matrix")
+					wordCol = SparseUserDayWord.loadCSC(
+						array(self.wordColF['data'],dtype=float32),
+						array(self.wordColF['ir'],dtype=int32),
+						array(self.wordColF['jc'],dtype=int32)
+					)
 				logger.debug("Loading entire user column matrix")
 				userCol = SparseUserDayWord.loadCSC(
 					array(self.userColF['data'],dtype=float32),
 					array(self.userColF['ir'],dtype=int32),
 					array(self.userColF['jc'],dtype=int32)
 				)
+				if self.generateWordCol:
+					wordCol = ssp.csc_matrix(userCol.transpose())
 			if days:
 				firstDay,lastDay = extractFirstLast(days)
 
@@ -115,24 +133,25 @@ class SparseUserDayWord(object):
 				uptr -= uptr[0]
 				logger.debug("Creating refined usercol sparse matrix")
 				userCol = SparseUserDayWord.loadCSC(udta,uind,uptr,shape=outputDims)
-				logger.debug("Creating wordCol matrix (via transpose and csc_matrix)")
-				wordCol = ssp.csc_matrix(userCol.transpose())
+				if self.generateWordCol:
+					logger.debug("Creating wordCol matrix (via transpose and csc_matrix)")
+					wordCol = ssp.csc_matrix(userCol.transpose())
 
 			logger.debug("Done creating matrix")
 			
 		elif self.mode is 0:
 			if days is None:
 				userCol = self.userCol
-				wordCol = self.wordCol
+				if self.generateWordCol: wordCol = self.wordCol
 			else:
 				firstDay,lastDay = extractFirstLast(days)
 				userCol = self.userCol[:,firstDay*self.nusers:lastDay*self.nusers]
-				wordCol = ssp.csc_matrix(userCol.transpose())
+				if self.generateWordCol: wordCol = ssp.csc_matrix(userCol.transpose())
 
 		if voc is not None:
 			logger.debug("Correcting vocabulary with provided voc")
 			userCol = userCol[voc,:]
-			wordCol = wordCol[:,voc]
+			if self.generateWordCol: wordCol = wordCol[:,voc]
 		
 		return userCol,wordCol
 
@@ -202,8 +221,8 @@ def savesparse(sparsemat, loc, matname="mat"):
 	# f.close()
 	sio.savemat(loc, {matname : sparsemat})
 	
-def suserdayword(userCol, wordCol,ndays):
-	return SparseUserDayWord(userCol,wordCol,ndays)
+def suserdayword(userCol,ndays, wordCol=None,nwords=None):
+	return SparseUserDayWord(userCol,wordCol,ndays,nwords=nwords)
 
 def taskvals(loc,**xargs):
 	return TasksAcrossDays(loc,**xargs)
@@ -229,6 +248,5 @@ def subsample(userCol,word_subsample=0.001,user_subsample=0.001,ndays=None):
 		usrdays += (usrs+(x * nusers)).tolist()
 	userCol = userCol[wrds,:]
 	userCol = userCol[:,usrdays]
-	wordCol = ssp.csc_matrix(userCol.transpose())
 
-	return userCol,wordCol
+	return userCol

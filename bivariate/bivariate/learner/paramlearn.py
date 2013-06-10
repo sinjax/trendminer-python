@@ -29,13 +29,15 @@ class LambdaSearch(object):
 	def optimise(self,spamsfunc, lambda_rng, x_parts, y_parts,name="opt"):
 		min_err = None
 		min_lambda = None
-		search_state = es.state()["lambdasearch"] = es.state().get("lambdasearch",dict())
+		search_state = es.state().get("lambdasearch",dict())
+		es.state()["lambdasearch"] = search_state
 		search_state[name] = dict()
 		search_state = search_state[name]
 		search_state["thetas"] = list()
 		search_state["biases"] = list()
 		search_state["errors"] = list()
 		search_state["lambdas"] = list()
+		search_state["project"] = list()
 		for lmbda_i in range(len(lambda_rng)):
 			lmbda = lambda_rng[lmbda_i]
 			logger.debug("... Testing lambda %2.5f (%d/%d)"%(lmbda,lmbda_i,len(lambda_rng)))
@@ -44,7 +46,7 @@ class LambdaSearch(object):
 				x_parts.train, 
 				y_parts.train
 			)
-			err = self.errorfunc.evaluate(
+			err,proj = self.errorfunc.evaluate(
 				x_parts.val_param,
 				y_parts.val_param,
 				theta_new,
@@ -54,6 +56,7 @@ class LambdaSearch(object):
 			search_state["biases"] += [bias]
 			search_state["errors"] += [err]	
 			search_state["lambdas"] += [lmbda]
+			search_state["project"] += [proj]
 			if min_err is None or err < min_err:
 				min_err = err
 				min_lambda = lmbda
