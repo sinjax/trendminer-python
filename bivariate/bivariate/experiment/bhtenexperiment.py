@@ -53,7 +53,7 @@ def experiment(o):
 		"tree":FistaTree(tree,**{
 			"intercept": True,
 			"loss":"square",
-			"regul":"l1",
+			"regul":"tree-l2",
 			"it0":10,
 			"max_it":1000
 		}),
