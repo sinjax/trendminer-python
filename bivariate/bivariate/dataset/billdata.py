@@ -128,8 +128,8 @@ class SparseUserDayWord(object):
 				outputDims = (self.nwords,expectedCols)
 				logger.debug("Expected dimensions: %s"%str(outputDims))
 				uptr = array(self.userColF['jc'][firstDay*self.nusers:(lastDay*self.nusers)+1],dtype=int32)
-				udta = array(self.userColF['data'][uptr[0]:uptr[-1]],dtype=float64)
 				uind = array(self.userColF['ir'][uptr[0]:uptr[-1]],dtype=int32)
+				udta = array(self.userColF['data'][uptr[0]:uptr[-1]],dtype=float64)
 				uptr -= uptr[0]
 				logger.debug("Creating refined usercol sparse matrix")
 				userCol = SparseUserDayWord.loadCSC(udta,uind,uptr,shape=outputDims)
@@ -150,7 +150,12 @@ class SparseUserDayWord(object):
 
 		if voc is not None:
 			logger.debug("Correcting vocabulary with provided voc")
+			logger.debug("Turning usercol into a row matrix briefly")
+			userCol = ssp.csr_matrix(userCol)
+			logger.debug("Selecting voc words")
 			userCol = userCol[voc,:]
+			logger.debug("Turning user col back to column matrix")
+			userCol = ssp.csc_matrix(userCol)
 			if self.generateWordCol: wordCol = wordCol[:,voc]
 		
 		return userCol,wordCol
