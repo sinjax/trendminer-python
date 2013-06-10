@@ -30,7 +30,7 @@ def experiment(o):
 	ndays_total = tasks.yvalues.shape[0]
 	tasks = tasks.mat(days=(start,end))
 	tree = billdata.tree(o["tree_file"]).spamsobj()
-	if "voc_file" in o and not (o["word_subsample"] < 1 or o["user_subsample"] < 1):
+	if "voc_file" in o and not o["word_subsample"] < 1:
 		logger.info("...Reading vocabulary")
 		voc = billdata.voc(o["voc_file"]).voc()
 		# voc = None
@@ -49,21 +49,24 @@ def experiment(o):
 	w_lambdas = [float(x) for x in o['w_lambdas_str'].split(",")]
 	u_lambdas = np.arange(*u_lambdas)
 	w_lambdas = np.arange(*w_lambdas)
-
-	w_spams = FistaFlat(**{
-		"intercept": True,
-		"loss":"square",
-		"regul":"l1",
-		"it0":10,
-		"max_it":1000
-	})
-	u_spams = FistaFlat(**{
-		"intercept": True,
-		"loss":"square",
-		"regul":"elastic-net",
-		"max_it":1000,
-		"lambda2":0.5
-	})
+	spams_avail = {
+		"tree":FistaTree(tree,**{
+			"intercept": True,
+			"loss":"square",
+			"regul":"l1",
+			"it0":10,
+			"max_it":1000
+		}),
+		"flat":FistaFlat(**{
+			"intercept": True,
+			"loss":"square",
+			"regul":"elastic-net",
+			"it0":10,
+			"max_it":1000
+		})
+	}
+	w_spams = spams_avail[o["w_spams"]]
+	u_spams = spams_avail[o["u_spams"]]
 
 	# Prepare the learner
 	learner = BatchBivariateLearner(w_spams,u_spams)
@@ -129,6 +132,10 @@ if __name__ == '__main__':
 					  help="Choose some proportion of the words", type="float", default=1.)
 	parser.add_option("--ssu","--sub-sample-user", dest="user_subsample",
 					  help="Choose some proportion of the users", type="float", default=1.)
+	parser.add_option("--wspm","--w-spams-mode", dest="w_spams",
+					  help="How W should be optimised", default="tree", choices=["tree","flat-en"])
+	parser.add_option("--uspm","--u-spams-mode", dest="u_spams",
+					  help="How U should be optimised", default="flat", choices=["tree","flat"])
 
 	(options, args) = parser.parse_args()
 	options = vars(options)
