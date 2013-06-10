@@ -113,11 +113,11 @@ if __name__ == '__main__':
 	parser.add_option("-s", "--start", dest="start",
 					  help="The start day", default=81, type="int")
 	parser.add_option("-d", "--n-days", dest="ndays",
-					  help="The start day", default=20, type="int")
+					  help="The number of days", default=271, type="int")
 	parser.add_option("--fold-ntest","--ft", dest="f_ntest",
-					  help="The number of days", default=5, type="int")
+					  help="The number of days in the test of each fold", default=5, type="int")
 	parser.add_option("--fold-maxiter","--fm", dest="f_maxiter",
-					  help="The number of days", type="int")
+					  help="The max number of iterations (regardless of fold params)", type="int")
 	parser.add_option("--fold-ntrain","--ftr", dest="f_ntrain",
 					  help="The first number of training examples in first fold", default=190, type="int")
 	parser.add_option("--fold-nval", "--fv",dest="f_nval",
