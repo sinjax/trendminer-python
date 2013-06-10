@@ -79,7 +79,7 @@ def experiment(o):
 		learner.optimise_lambda(w_lambdas,u_lambdas,Yparts,Xparts)
 		logger.info("... training fold")
 		learner.process(Yparts.train_all,Xparts.train_all,tests={"test":(Xparts.test,Yparts.test),"val_it":(Xparts.val_it,Yparts.val_it)})
-		es.add(locals(),"fold_i","w_lambdas","u_lambdas","fold","Yparts")
+		es.add(locals(),"fold_i","w_lambdas","u_lambdas","fold","Yparts","o")
 		es.state()["w_spams_params"] = w_spams.params 
 		es.state()["u_spams_params"] = u_spams.params
 		logger.info("... Saving output")
