@@ -93,9 +93,9 @@ if __name__ == '__main__':
 	home = os.environ['HOME']
 	data_home = "%s/Dropbox/Experiments/twitter_uk_users_MATLAB/"%home
 	task_data_home = "%s/Dropbox/TrendMiner/Collaboration/EMNLP_2013/MATLAB_v2/"%home
-	parser.add_option("--data-home", dest="data_home",default=data_home,
+	parser.add_option("--data-home", "--dh", dest="data_home",default=data_home,
 					  help="root location where user_vsr_for_polls and user_vsr_for_polls_t can be found")
-	parser.add_option("--task-data-home", dest="task_data_home", default=task_data_home,
+	parser.add_option("--task-data-home", "--tdh", dest="task_data_home", default=task_data_home,
 					  help="root location where UK_data_for_experiment_PartII.mat etc. can be found")
 	parser.add_option("-x", "--user-mat-file", dest="user_file",
 					  help="File containing a sparse matrix (hdf5 or mat) of user/days in the columns and words in the rows")
