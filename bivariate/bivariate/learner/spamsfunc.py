@@ -70,7 +70,6 @@ class FistaTree(SpamsFunctions):
 		self.tree = tree
 
 	def _call(self,x,y,w0):
-		embed()
 		w = spams.fistaTree(y,x,w0,self.tree,False,**self.params)
 		return w
 

@@ -133,7 +133,7 @@ if __name__ == '__main__':
 	parser.add_option("--ssu","--sub-sample-user", dest="user_subsample",
 					  help="Choose some proportion of the users", type="float", default=1.)
 	parser.add_option("--wspm","--w-spams-mode", dest="w_spams",
-					  help="How W should be optimised", default="tree", choices=["tree","flat-en"])
+					  help="How W should be optimised", default="flat", choices=["tree","flat"])
 	parser.add_option("--uspm","--u-spams-mode", dest="u_spams",
 					  help="How U should be optimised", default="flat", choices=["tree","flat"])
 
