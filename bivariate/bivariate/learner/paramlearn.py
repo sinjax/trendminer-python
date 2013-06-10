@@ -40,12 +40,14 @@ class LambdaSearch(object):
 		search_state["project"] = list()
 		for lmbda_i in range(len(lambda_rng)):
 			lmbda = lambda_rng[lmbda_i]
-			logger.debug("... Testing lambda %2.5f (%d/%d)"%(lmbda,lmbda_i,len(lambda_rng)))
+			logger.debug("Testing lambda %2.5f (%d/%d)"%(lmbda,lmbda_i,len(lambda_rng)))
+			logger.debug("Calling SPAMS function")
 			spamsfunc.params['lambda1'] = lmbda
 			theta_new,bias = spamsfunc.call(
 				x_parts.train, 
 				y_parts.train
 			)
+			logger.debug("Calculating error")
 			err,proj = self.errorfunc.evaluate(
 				x_parts.val_param,
 				y_parts.val_param,
