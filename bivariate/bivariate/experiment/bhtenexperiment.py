@@ -4,11 +4,13 @@ from bivariate.learner.spamsfunc import *
 import bivariate.experiment.expstate as es
 from bivariate.learner.partbatchbivariate import BatchBivariateLearner
 from pylab import *
+import scipy.io as sio
 import os
 from IPython import embed
 import logging;logger = logging.getLogger("root")
 
 user_mat_file = "user_vsr_for_polls_t.mat"
+user_mat_corrected_file = "user_vsr_for_polls_t_corrected_%d->%d.mat"
 word_mat_file = "user_vsr_for_polls.mat"
 
 def prep_input_files(xargs):
@@ -18,7 +20,9 @@ def prep_input_files(xargs):
 	if xargs["tree_file"] is None: xargs["tree_file"] = "%s/UK_data_for_experiment_PartI.mat"%tdh
 	if xargs["voc_file"] is None: xargs["voc_file"] = "%s/voc_matching_v2.mat"%tdh
 	if xargs["user_file"] is None: xargs["user_file"] = os.sep.join([dh,user_mat_file])
+	if xargs["user_file_corrected"] is None: xargs["user_file_corrected"] = os.sep.join([dh,user_mat_corrected_file%(xargs["start"],xargs["start"]+xargs["ndays"])])
 	if xargs["word_file"] is None: xargs["word_file"] = os.sep.join([dh,word_mat_file])
+
 
 	
 def experiment(o):			
@@ -28,16 +32,23 @@ def experiment(o):
 	
 	tasks = billdata.taskvals(o["task_file"])
 	ndays_total = tasks.yvalues.shape[0]
-	if "voc_file" in o and not o["word_subsample"] < 1:
-		logger.info("...Reading vocabulary")
-		voc = billdata.voc(o["voc_file"]).voc()
-		# voc = None
+	if not os.path.exists(o["user_file_corrected"]):
+		if "voc_file" in o and not o["word_subsample"] < 1:
+			logger.info("...Reading vocabulary")
+			voc = billdata.voc(o["voc_file"]).voc()
+			# voc = None
+		else:
+			voc = None
+		logger.info("...Reading user days")
+		user_col, word_col = billdata.suserdayword(
+			o["user_file"],ndays_total,nwords=billdata.count_cols_h5(o["word_file"])
+		).mat(days=(start,end),voc=voc)
+		logger.info("...Saving corrected user_mat")
+		sio.savemat(o["user_file_corrected"],{"user_col":user_col})
 	else:
-		voc = None
-	logger.info("...Reading user days")
-	user_col, word_col = billdata.suserdayword(
-		o["user_file"],ndays_total,nwords=billdata.count_cols_h5(o["word_file"])
-	).mat(days=(start,end),voc=voc)
+		logger.info("...Loading corrected user_mat")
+		user_col = sio.loadmat(o["user_file_corrected"])["user_col"]
+
 	logger.info("...Reading task data")
 	tasks = tasks.mat(days=(start,end))
 	logger.info("...Reading tree file")
@@ -104,6 +115,8 @@ if __name__ == '__main__':
 					  help="root location where UK_data_for_experiment_PartII.mat etc. can be found")
 	parser.add_option("-x", "--user-mat-file", dest="user_file",
 					  help="File containing a sparse matrix (hdf5 or mat) of user/days in the columns and words in the rows")
+	parser.add_option("--xc", "--user-mat-corrected-file", dest="user_file_corrected",
+					  help="File containing a sparse matrix (hdf5 or mat) of user/days in the columns and words in the rows (corrected for vocabulary)")
 	parser.add_option("--word-mat-file", dest="word_file",
 					  help="File containing a sparse matrix (hdf5 or mat) of user/days in the columns and words in the rows")
 	parser.add_option("-y", "--task", dest="task_file",
