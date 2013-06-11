@@ -5,8 +5,8 @@ import logging;logger = logging.getLogger("root")
 from onlinelearner import OnlineLearner
 import scipy.sparse as ssp
 import inspect
-from bivariate.evaluator.bilineareval import MeanSquareEval as BiMeanSquareEval
-from bivariate.evaluator.lineareval import MeanEval
+from bivariate.evaluator.bilineareval import RootMeanSquareEval as BiMeanSquareEval
+from bivariate.evaluator.lineareval import RootMeanEval
 from bivariate.learner.paramlearn import LambdaSearch
 from IPython import embed
 import bivariate.experiment.expstate as es
@@ -35,7 +35,7 @@ class BatchBivariateLearner(OnlineLearner):
 		self.u_bias = None
 		self.bias = None
 		self.change_eval = BiMeanSquareEval(self)
-		self.part_eval = MeanEval()
+		self.part_eval = RootMeanEval()
 		self.w_func = w_spams_func
 		self.u_func = u_spams_func
 	
@@ -59,29 +59,31 @@ class BatchBivariateLearner(OnlineLearner):
 		sumSSE = 0
 		esiter = list()
 		es.state()["iterations"] = esiter
+		# in the first iteration we calculate W by using ones on U
+		U = ssp.csc_matrix(ones(self.u.shape))
 		while True:
 			esiterdict = dict()
 			esiterdict["i"] = bivariter
 			logger.debug("Starting iteration: %d"%bivariter)
 			bivariter += 1
-			U = self.u
 			W,w_bias,err = self.calculateW(U,tests=tests)
 			esiterdict["w"] = W
-			esiterdict["w_sparcity"] = (abs(W) < 0.00001).sum()
+			esiterdict["w_sparcity"] = (abs(W) > 0).sum()
 			esiterdict["w_bias"] = w_bias
 			esiterdict["w_test_err"] = err
+			logger.debug("W sparcity=%d,test_err=%2.2f"%(esiterdict["w_sparcity"],err['test'][0]))
 			W = ssp.csc_matrix(W)
 			U,u_bias,err = self.calculateU(W,tests=tests)
 			esiterdict["u"] = U
-			esiterdict["u_sparcity"] = (abs(U) < 0.00001).sum()
+			esiterdict["u_sparcity"] = (abs(U) > 0).sum()
 			esiterdict["u_bias"] = u_bias
 			esiterdict["u_test_err"] = err
-			self.u = ssp.csc_matrix(U)
+			logger.debug("U sparcity=%d,test_err=%2.2f"%(esiterdict["u_sparcity"],err['test'][0]))
+			U = ssp.csc_matrix(U)
+			self.u = U
 			self.w = W
 			self.w_bias = w_bias
 			self.u_bias = u_bias
-
-
 			esiter += [esiterdict]
 			if self.allParams['bivar_max_it'] <= bivariter:
 				break
@@ -139,7 +141,7 @@ class BatchBivariateLearner(OnlineLearner):
 		logger.debug("(ndays=%d,ntasks=%d,nusers=%d,nwords=%d)"%(
 			self.ndays,self.ntasks,self.nusers,self.nwords)
 		)
-		self.u = ssp.csc_matrix(ones((self.nusers,self.ntasks)))
+		self.u = ssp.csc_matrix(zeros((self.nusers,self.ntasks)))
 		self.w = ssp.csc_matrix(zeros((self.nwords,self.ntasks)))
 
 	def calculateW(self,U=None,tests=None):
