@@ -91,8 +91,8 @@ def experiment(o):
 	if o["lambda_file"] is not None and os.path.exists(o["lambda_file"]):
 		logger.info("... loading existing lambda")
 		lambda_d = sio.loadmat(o["lambda_file"])
-		w_spams.params["lambda1"] = lambda_d["w_lambda"]
-		u_spams.params["lambda1"] = lambda_d["u_lambda"]
+		w_spams.params["lambda1"] = lambda_d["w_lambda"][0][0]
+		u_spams.params["lambda1"] = lambda_d["u_lambda"][0][0]
 		lambda_set = True
 
 	# Prepare the learner
