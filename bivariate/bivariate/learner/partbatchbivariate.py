@@ -67,11 +67,13 @@ class BatchBivariateLearner(OnlineLearner):
 			U = self.u
 			W,w_bias,err = self.calculateW(U,tests=tests)
 			esiterdict["w"] = W
+			esiterdict["w_sparcity"] = (abs(W) < 0.00001).sum()
 			esiterdict["w_bias"] = w_bias
 			esiterdict["w_test_err"] = err
 			W = ssp.csc_matrix(W)
 			U,u_bias,err = self.calculateU(W,tests=tests)
 			esiterdict["u"] = U
+			esiterdict["u_sparcity"] = (abs(U) < 0.00001).sum()
 			esiterdict["u_bias"] = u_bias
 			esiterdict["u_test_err"] = err
 			self.u = ssp.csc_matrix(U)
