@@ -68,7 +68,7 @@ def exp(root="./",fake=False):
 
 def state(state=None):
 	if state is None and exp()._currentStateName is None:
-		raise Exception("No state has been specified")
+		return FakeDict()
 	if state is not None and exp()._currentStateName is not state:
 		exp().nextState(state)
 	return exp()._currentState
