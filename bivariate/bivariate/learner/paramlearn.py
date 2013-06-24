@@ -50,7 +50,7 @@ class LambdaSearch(object):
 			)
 			theta_sparse = (abs(theta_new) < 0.00001).sum()
 			logger.debug("Calculating error")
-			err,proj = self.errorfunc.evaluate(
+			err = self.errorfunc.evaluate(
 				x_parts.val_param,
 				y_parts.val_param,
 				theta_new,
@@ -60,13 +60,12 @@ class LambdaSearch(object):
 			search_state["biases"] += [bias]
 			search_state["errors"] += [err]	
 			search_state["lambdas"] += [lmbda]
-			search_state["project"] += [proj]
 			search_state["sparcity"] += [theta_sparse]
-			if min_err is None or err < min_err:
+			if min_err is None or err["totalsse"] < min_err:
 				logger.debug("New min error detected.") 
-				min_err = err
+				min_err = err["totalsse"]
 				min_lambda = lmbda
-			logger.debug("Lambda = %2.5f, Error = %2.5f, f=%d"%(lmbda,err,theta_sparse)) 
+			logger.debug("Lambda = %2.5f, Error = %2.5f, f=%d"%(lmbda,err["totalsse"],theta_sparse)) 
 		logger.debug("Lambda = %2.5f, Error = %2.5f"%(min_lambda,min_err)) 
 		spamsfunc.params['lambda1'] = min_lambda
 		return min_lambda

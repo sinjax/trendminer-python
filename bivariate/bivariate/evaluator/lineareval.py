@@ -21,7 +21,15 @@ class SquareEval(LinearEvaluator):
 		diff = diff[~np.isnan(diff)]
 		total = pow(diff[~np.isnan(diff)],2).sum()
 		dotproduct[np.isnan(Y)] = 0
-		return total,dotproduct
+		diffmat = ((Y - dotproduct)[~np.isnan(Y)])
+		diffmat = diffmat.reshape(Y.shape[1],Y.shape[0]/Y.shape[1]).T
+		diffmatsse = pow(diffmat,2).sum(axis=0)
+		return {
+			"totalsse":total,
+			"diff":diffmat,
+			"diffsse":diffmatsse,
+			"dotproduct":dotproduct
+		}
 
 class MeanEval(SquareEval):
 	"""The SquareEval divided by the total number of Ys (i.e. tasks and days)
@@ -30,8 +38,12 @@ class MeanEval(SquareEval):
 		super(MeanEval, self).__init__()
 
 	def evaluate(self,X,Y,theta,bias=None):
-		err,dotproduct = super(MeanEval,self).evaluate(X,Y,theta,bias)
-		return err / Y[~np.isnan(Y)].size,dotproduct
+		ssed = super(MeanEval,self).evaluate(X,Y,theta,bias)
+		ndays = Y.shape[0]/Y.shape[1]
+		ssed["totalsse"] = ssed["totalsse"]/Y[~np.isnan(Y)].size
+		ssed["diff"] = ssed["diff"]/ndays
+		ssed["diffsse"] = ssed["diffsse"]/ndays
+		return ssed
 
 class RootMeanEval(MeanEval):
 	"""The square root of the MeanEval"""
@@ -39,8 +51,10 @@ class RootMeanEval(MeanEval):
 		super(RootMeanEval, self).__init__()
 
 	def evaluate(self,X,Y,theta,bias=None):
-		err,dotproduct = super(RootMeanEval,self).evaluate(X,Y,theta,bias)
-		return sqrt(err),dotproduct
+		ssed = super(RootMeanEval,self).evaluate(X,Y,theta,bias)
+		ssed["totalsse"] = sqrt(ssed["totalsse"])
+		ssed["diffsse"] = sqrt(ssed["diffsse"])
+		return ssed
 		
 		
 		
