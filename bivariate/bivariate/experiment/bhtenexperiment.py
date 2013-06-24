@@ -76,6 +76,23 @@ def experiment(o):
 			"it0":3,
 			"max_it":150
 		}),
+		"treecheck":FistaTree(tree,**{
+			"intercept": True,
+			"loss":"square",
+			"regul":"multi-task-tree",
+			"it0":10,
+			"max_it":100,
+			"lambda2":1000,
+			"verbose":True
+		}),
+		"flatcheck":FistaFlat(**{
+			"intercept": True,
+			"loss":"square",
+			"regul":"l1l2",
+			"it0":50,
+			"max_it":100,
+			"verbose":True
+		}),
 		"flat":FistaFlat(**{
 			"intercept": True,
 			"loss":"square",
@@ -173,9 +190,9 @@ if __name__ == '__main__':
 	parser.add_option("--ssu","--sub-sample-user", dest="user_subsample",
 					  help="Choose some proportion of the users", type="float", default=1.)
 	parser.add_option("--wspm","--w-spams-mode", dest="w_spams",
-					  help="How W should be optimised", default="flat", choices=["tree","flat"])
+					  help="How W should be optimised", default="flat", choices=["tree","flat","treecheck","flatcheck"])
 	parser.add_option("--uspm","--u-spams-mode", dest="u_spams",
-					  help="How U should be optimised", default="flat", choices=["tree","flat"])
+					  help="How U should be optimised", default="flat", choices=["tree","flat","treecheck","flatcheck"])
 	parser.add_option("--lambda-file", "--lf", dest="lambda_file",
 					  help="A file containing the lambda value of u and w. Setting this file forces this lambda to be used for all folds. Setting this file if it doesn't exist forces one round of optimisation.", default=None)
 	parser.add_option("--optimise-lambda-once", "--olo", action="store_true", dest="optimise_lambda_once",
