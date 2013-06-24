@@ -56,7 +56,7 @@ def experiment(o):
 		user_col = ssp.csc_matrix((user_col_d["data"][:,0],user_col_d["indices"][:,0],user_col_d["indptr"][:,0]),shape=user_col_d["shape"])
 
 	logger.info("...Reading task data")
-	tasks = tasks.mat(days=(start,end))
+	tasks = tasks.mat(days=(start,end),cols=[3,4,5])
 	logger.info("...Reading tree file")
 	tree = billdata.tree(o["tree_file"]).spamsobj()
 

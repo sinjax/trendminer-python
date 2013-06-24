@@ -175,12 +175,19 @@ class TasksAcrossDays(object):
 		self.yvalues = p2[tasks_key][p2[tasks_index]-1,:]
 		self.yvalues = self.yvalues.reshape(self.yvalues.shape[0],self.yvalues.shape[2])
 
-	def mat(self,days=None):
+	def mat(self,days=None,cols=None):
 		if not days:
-			return self.yvalues
+			if not cols:
+				return self.yvalues
+			else:
+				return self.yvalues[:,cols]
 		else:
 			start,end = days
-			return self.yvalues[start:end,:]
+			if not cols:
+				return self.yvalues[start:end,:]
+			else:
+				return self.yvalues[start:end,cols]
+			
 
 class SpamsTree(object):
 	"""
