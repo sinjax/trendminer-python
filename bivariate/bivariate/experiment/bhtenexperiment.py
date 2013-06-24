@@ -43,7 +43,6 @@ def experiment(o):
 		else:
 			voc = None
 		logger.info("...Reading user days")
-		embed()
 		user_col, word_col = billdata.suserdayword(
 			o["user_file"],ndays_total,
 			nwords=billdata.count_cols_h5(o["word_file"])
