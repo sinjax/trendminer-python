@@ -1,5 +1,6 @@
 import inspect
 from pylab import *
+from IPython import embed
 
 def _slice(parts,dir):
 	if dir is "row":
@@ -13,12 +14,12 @@ class FoldPart(object):
 		super(FoldPart, self).__init__()
 		if arr is None: return
 		self.train = arr[slicefunc(fold.train(),dir)];
-		self.train_all = arr[slicefunc(fold.train_all(),dir)];
 		self.test = arr[slicefunc(fold.test(),dir)];
 		val = fold.val()
 		split = int(len(val) * valsplit)
 		self.val_param = arr[slicefunc(val[:split],dir)];
 		self.val_it = arr[slicefunc(val[split:],dir)];
+		self.train_all = arr[slicefunc(fold.train() + val[:split],dir)];
 		
 	
 	def apply(self,fnc,*args,**xargs):
@@ -110,6 +111,7 @@ class TimeSeriesFoldIterator(object):
 		trainMid = len(train)/2
 		halfnval = self.nvalidation/2
 		validation = train[trainMid-halfnval:(trainMid-halfnval+self.nvalidation)]
+		train = list(set(train) - set(validation))
 		self.cstep += 1
 		return Fold(train,test,validation)
 

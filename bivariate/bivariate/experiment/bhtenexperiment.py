@@ -46,7 +46,7 @@ def experiment(o):
 		logger.info("...Saving corrected user_mat")
 		sio.savemat(o["user_file_corrected"],{"user_col":user_col})
 	else:
-		logger.info("...Loading corrected user_mat")
+		logger.info("...Loading corrected user_mat: %s"%o["user_file_corrected"])
 		user_col = sio.loadmat(o["user_file_corrected"])["user_col"]
 
 	logger.info("...Reading task data")
@@ -108,7 +108,7 @@ if __name__ == '__main__':
 	parser = OptionParser()
 	home = os.environ['HOME']
 	data_home = "%s/Dropbox/Experiments/twitter_uk_users_MATLAB/"%home
-	task_data_home = "%s/Dropbox/TrendMiner/Collaboration/EMNLP_2013/MATLAB_v2/"%home
+	task_data_home = "%s/Dropbox/TrendMiner/Collaboration/EMNLP_2013/Data/"%home
 	parser.add_option("--data-home", "--dh", dest="data_home",default=data_home,
 					  help="root location where user_vsr_for_polls and user_vsr_for_polls_t can be found")
 	parser.add_option("--task-data-home", "--tdh", dest="task_data_home", default=task_data_home,
