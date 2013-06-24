@@ -93,10 +93,6 @@ class SparseUserDayWord(object):
 		return alldays
 
 	def mat(self,days=None,word_subsample=None,voc=None):
-		def extractFirstLast(days):
-			firstDay = days[0]
-			lastDay = days[1]
-			return firstDay,lastDay
 		wordCol = None
 		userCol = None
 		if self.mode is 1:
@@ -120,7 +116,7 @@ class SparseUserDayWord(object):
 				if self.generateWordCol:
 					wordCol = ssp.csc_matrix(userCol.transpose())
 			if days:
-				firstDay,lastDay = extractFirstLast(days)
+				firstDay,lastDay = days
 
 				logger.debug("Extracting days: %s -> %s"%(firstDay,lastDay))
 				expectedCols = self.nusers * (lastDay - firstDay)
@@ -215,7 +211,7 @@ class Vocabulary(object):
 		super(Vocabulary, self).__init__()
 		logger.debug("Loading corrected vocabulary")
 		voc_matching = sio.loadmat(vocloc,squeeze_me=False,struct_as_record=False)
-		self.voc_index = voc_matching['vocFilteredIndex'][voc_matching['vocPointers_new']]-1
+		self.voc_index = voc_matching['vocFilteredIndex'][voc_matching['vocPointers_new']-1]-1
 	def voc(self):
 		return self.voc_index.flatten()
 		

@@ -43,9 +43,14 @@ def experiment(o):
 		else:
 			voc = None
 		logger.info("...Reading user days")
+		embed()
 		user_col, word_col = billdata.suserdayword(
-			o["user_file"],ndays_total,nwords=billdata.count_cols_h5(o["word_file"])
-		).mat(days=(start,end),voc=voc)
+			o["user_file"],ndays_total,
+			nwords=billdata.count_cols_h5(o["word_file"])
+		).mat(
+			days=(start,end),
+			voc=voc
+		)
 		if o["user_file_corrected"] is not None:
 			logger.info("...Saving corrected user_mat")
 			sio.savemat(o["user_file_corrected"],{"data":user_col.data,"indices":user_col.indices,"indptr":user_col.indptr,"shape":user_col.shape})
@@ -136,7 +141,6 @@ def experiment(o):
 		logger.debug("... Setting max it to training mode: %d"%o["train_maxit"])
 		w_spams.params["max_it"] = o["train_maxit"]
 		u_spams.params["max_it"] = o["train_maxit"]
-		embed()
 		learner.process(
 			Yparts.train_all,Xparts.train_all,
 			tests={
