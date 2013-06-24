@@ -113,7 +113,7 @@ def experiment(o):
 		lambda_set = True
 
 	# Prepare the learner
-	learner = BatchBivariateLearner(w_spams,u_spams)
+	learner = BatchBivariateLearner(w_spams,u_spams,bivar_max_it=o["bivar_max_it"])
 	fold_i = 0
 	es.exp(os.sep.join([o['exp_out'],"ds:politics_word:l1_user:l1_task:multi"]),fake=False)
 	# Go through the folds!
@@ -136,7 +136,14 @@ def experiment(o):
 		logger.debug("... Setting max it to training mode: %d"%o["train_maxit"])
 		w_spams.params["max_it"] = o["train_maxit"]
 		u_spams.params["max_it"] = o["train_maxit"]
-		learner.process(Yparts.train_all,Xparts.train_all,tests={"test":(Xparts.test,Yparts.test),"val_it":(Xparts.val_it,Yparts.val_it)})
+		embed()
+		learner.process(
+			Yparts.train_all,Xparts.train_all,
+			tests={
+				"test":(Xparts.test,Yparts.test),
+				"val_it":(Xparts.val_it,Yparts.val_it)
+			}
+		)
 		es.add(locals(),"fold_i","w_lambdas","u_lambdas","fold","Yparts","o")
 		es.state()["w_spams_params"] = w_spams.params 
 		es.state()["u_spams_params"] = u_spams.params
@@ -201,6 +208,8 @@ if __name__ == '__main__':
 					  help="The max iterations for optimisation of lambda",type="int")
 	parser.add_option("--train-maxit", "--tmi", dest="train_maxit", default=1000,
 					  help="The max iterations for training",type="int")
+	parser.add_option("--bivar-max-it", "--bmi", dest="bivar_max_it", default=10,
+					  help="The max iterations for the bivariate learning scheme",type="int")
 
 
 	(options, args) = parser.parse_args()
