@@ -16,10 +16,14 @@ class FoldPart(object):
 		self.train = arr[slicefunc(fold.train(),dir)];
 		self.test = arr[slicefunc(fold.test(),dir)];
 		val = fold.val()
-		split = int(len(val) * valsplit)
-		self.val_param = arr[slicefunc(val[:split],dir)];
-		self.val_it = arr[slicefunc(val[split:],dir)];
-		self.train_all = arr[slicefunc(fold.train() + val[:split],dir)];
+		split = int(len(val) * (1.0 - valsplit))
+		valMid = len(val)/2
+		halfsplit = split/2
+		val_it_ind = val[valMid-halfsplit:(valMid-halfsplit+split)]
+		val_param_ind = list(set(val) - set(val_it_ind))
+		self.val_param = arr[slicefunc(val_param_ind,dir)];
+		self.val_it = arr[slicefunc(val_it_ind,dir)];
+		self.train_all = arr[slicefunc(fold.train() + val_param_ind,dir)];
 		
 	
 	def apply(self,fnc,*args,**xargs):

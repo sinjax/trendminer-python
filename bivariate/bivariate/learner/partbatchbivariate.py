@@ -148,7 +148,7 @@ class BatchBivariateLearner(OnlineLearner):
 		if U is None: U = self.u
 		Vprime = BatchBivariateLearner._calculateVprime(self.X,U)
 		logger.debug("Calling w_func: %s"%self.w_func)
-		W,w_bias = self.w_func.call(Vprime,self.Yexpanded,self.w.todense())
+		W,w_bias = self.w_func.call(Vprime,self.Yexpanded)
 		err = self.part_eval.evaluate(Vprime,self.Yexpanded,W,w_bias)
 		testerr = {"train_all":err}
 		if tests is not None:
@@ -164,7 +164,7 @@ class BatchBivariateLearner(OnlineLearner):
 		if W is None: W = self.w
 		Dprime = BatchBivariateLearner._calculateDprime(self.X,W,self.u.shape)
 		logger.debug("Calling u_func: %s"%self.u_func)
-		U,u_bias = self.u_func.call(Dprime,self.Yexpanded,self.u.todense())
+		U,u_bias = self.u_func.call(Dprime,self.Yexpanded)
 		err = self.part_eval.evaluate(Dprime,self.Yexpanded,U,u_bias)
 		testerr = {"train_all":err}
 		if tests is not None:
