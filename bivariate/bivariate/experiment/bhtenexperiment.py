@@ -5,9 +5,11 @@ import bivariate.experiment.expstate as es
 from bivariate.learner.partbatchbivariate import BatchBivariateLearner
 from pylab import *
 import scipy.io as sio
+import scipy.sparse as ssp
 import os
 from IPython import embed
 import logging;logger = logging.getLogger("root")
+import copy
 
 user_mat_file = "user_vsr_for_polls_t.mat"
 user_mat_corrected_file = "user_vsr_for_polls_t_corrected_%d->%d.mat"
@@ -32,7 +34,8 @@ def experiment(o):
 	
 	tasks = billdata.taskvals(o["task_file"])
 	ndays_total = tasks.yvalues.shape[0]
-	if not os.path.exists(o["user_file_corrected"]):
+	if o["user_file_corrected"] is None or not os.path.exists(o["user_file_corrected"]):
+		logger.info("...Loading and correcting from source")
 		if "voc_file" in o and not o["word_subsample"] < 1:
 			logger.info("...Reading vocabulary")
 			voc = billdata.voc(o["voc_file"]).voc()
@@ -43,11 +46,14 @@ def experiment(o):
 		user_col, word_col = billdata.suserdayword(
 			o["user_file"],ndays_total,nwords=billdata.count_cols_h5(o["word_file"])
 		).mat(days=(start,end),voc=voc)
-		logger.info("...Saving corrected user_mat")
-		sio.savemat(o["user_file_corrected"],{"user_col":user_col})
+		if o["user_file_corrected"] is not None:
+			logger.info("...Saving corrected user_mat")
+			sio.savemat(o["user_file_corrected"],{"data":user_col.data,"indices":user_col.indices,"indptr":user_col.indptr,"shape":user_col.shape})
 	else:
-		logger.info("...Loading corrected user_mat: %s"%o["user_file_corrected"])
-		user_col = sio.loadmat(o["user_file_corrected"])["user_col"]
+		logger.info("...Loading corrected user_mat")
+		# csc_matrix((data, indices, indptr), [shape=(M, N)])
+		user_col_d = sio.loadmat(o["user_file_corrected"])
+		user_col = ssp.csc_matrix((user_col_d["data"][:,0],user_col_d["indices"][:,0],user_col_d["indptr"][:,0]),shape=user_col_d["shape"])
 
 	logger.info("...Reading task data")
 	tasks = tasks.mat(days=(start,end))
@@ -67,19 +73,27 @@ def experiment(o):
 			"intercept": True,
 			"loss":"square",
 			"regul":"tree-l2",
-			"it0":10,
-			"max_it":1000
+			"it0":3,
+			"max_it":150
 		}),
 		"flat":FistaFlat(**{
 			"intercept": True,
 			"loss":"square",
 			"regul":"elastic-net",
-			"it0":10,
-			"max_it":1000
+			"it0":3,
+			"max_it":150
 		})
 	}
-	w_spams = spams_avail[o["w_spams"]]
-	u_spams = spams_avail[o["u_spams"]]
+
+	w_spams = copy.deepcopy(spams_avail[o["w_spams"]])
+	u_spams = copy.deepcopy(spams_avail[o["u_spams"]])
+	lambda_set = False
+	if o["lambda_file"] is not None and os.path.exists(o["lambda_file"]):
+		logger.info("... loading existing lambda")
+		lambda_d = sio.loadmat(o["lambda_file"])
+		w_spams.params["lambda1"] = lambda_d["w_lambda"][0][0]
+		u_spams.params["lambda1"] = lambda_d["u_lambda"][0][0]
+		lambda_set = True
 
 	# Prepare the learner
 	learner = BatchBivariateLearner(w_spams,u_spams)
@@ -91,9 +105,20 @@ def experiment(o):
 		logger.info("Working on fold: %d"%fold_i)
 		logger.info("... preparing fold parts")
 		Xparts,Yparts = BatchBivariateLearner.XYparts(fold,user_col,tasks)
-		logger.info("... optimising fold lambda")
-		learner.optimise_lambda(w_lambdas,u_lambdas,Yparts,Xparts)
+		if not o["optimise_lambda_once"] or (o["optimise_lambda_once"] and not lambda_set):
+			logger.debug("... Setting max it to optimisation mode: %d"%o["opt_maxit"])
+			w_spams.params["max_it"] = o["opt_maxit"]
+			u_spams.params["max_it"] = o["opt_maxit"]
+			logger.info("... optimising fold lambda")
+			ulambda,wlambda = learner.optimise_lambda(w_lambdas,u_lambdas,Yparts,Xparts)
+			lambda_set = True
+			if o["lambda_file"] is not None:
+				logger.info("... saving optimised lambdas")
+				sio.savemat(o["lambda_file"],{"w_lambda":wlambda[1],"u_lambda":ulambda[1]})
 		logger.info("... training fold")
+		logger.debug("... Setting max it to training mode: %d"%o["train_maxit"])
+		w_spams.params["max_it"] = o["train_maxit"]
+		u_spams.params["max_it"] = o["train_maxit"]
 		learner.process(Yparts.train_all,Xparts.train_all,tests={"test":(Xparts.test,Yparts.test),"val_it":(Xparts.val_it,Yparts.val_it)})
 		es.add(locals(),"fold_i","w_lambdas","u_lambdas","fold","Yparts","o")
 		es.state()["w_spams_params"] = w_spams.params 
@@ -115,7 +140,7 @@ if __name__ == '__main__':
 					  help="root location where UK_data_for_experiment_PartII.mat etc. can be found")
 	parser.add_option("-x", "--user-mat-file", dest="user_file",
 					  help="File containing a sparse matrix (hdf5 or mat) of user/days in the columns and words in the rows")
-	parser.add_option("--xc", "--user-mat-corrected-file", dest="user_file_corrected",
+	parser.add_option("--xc", "--user-mat-corrected-file", dest="user_file_corrected",default=None,
 					  help="File containing a sparse matrix (hdf5 or mat) of user/days in the columns and words in the rows (corrected for vocabulary)")
 	parser.add_option("--word-mat-file", dest="word_file",
 					  help="File containing a sparse matrix (hdf5 or mat) of user/days in the columns and words in the rows")
@@ -140,7 +165,7 @@ if __name__ == '__main__':
 	parser.add_option("--u-lambdas", dest="u_lambdas_str",
 					  help="The lambdas to search for u, comma seperater: start,end,gap", default="0.1,1,0.1")
 	parser.add_option("--w-lambdas", dest="w_lambdas_str",
-					  help="The lambdas to search for w, comma seperater: start,end,gap", default="0.1,2,0.1")
+					  help="The lambdas to search for w, comma seperater: start,end,gap", default="1.0,3,0.1")
 	parser.add_option("-o","--experiment-out", dest="exp_out",
 					  help="Output location for the experiment", default="%s/Experiments/EMNLP2013"%home)
 	parser.add_option("--ssw","--sub-sample-word", dest="word_subsample",
@@ -151,6 +176,15 @@ if __name__ == '__main__':
 					  help="How W should be optimised", default="flat", choices=["tree","flat"])
 	parser.add_option("--uspm","--u-spams-mode", dest="u_spams",
 					  help="How U should be optimised", default="flat", choices=["tree","flat"])
+	parser.add_option("--lambda-file", "--lf", dest="lambda_file",
+					  help="A file containing the lambda value of u and w. Setting this file forces this lambda to be used for all folds. Setting this file if it doesn't exist forces one round of optimisation.", default=None)
+	parser.add_option("--optimise-lambda-once", "--olo", action="store_true", dest="optimise_lambda_once",
+					  help="If set lambda is optimised once on the first fold and never again", default=False)
+	parser.add_option("--optimise-maxit", "--omi", dest="opt_maxit", default=100,
+					  help="The max iterations for optimisation of lambda",type="int")
+	parser.add_option("--train-maxit", "--tmi", dest="train_maxit", default=1000,
+					  help="The max iterations for training",type="int")
+
 
 	(options, args) = parser.parse_args()
 	options = vars(options)

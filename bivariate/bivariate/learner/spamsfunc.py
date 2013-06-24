@@ -14,13 +14,14 @@ class SpamsFunctions(object):
 			if self.params["loss"] is "square":
 				self.params["loss"] = "square-missing"
 		if not self.init_strat:
-			self.init_strat = lambda x,y:ones((x.shape[1],y.shape[1]))
+			self.init_strat = lambda x,y:zeros((x.shape[1],y.shape[1]))
 
-	def call(self,x,y):
+	def call(self,x,y,w0=None):
 		logger.debug("Calling %s"%str(self))
 		logger.debug("With x.shape=%s, y.shape=%s"%(str(x.shape),str(y.shape)))
-		x,y,w0 = self.prepall(x,y)
+		x,y,w0 = self.prepall(x,y,w0)
 		w = self._call(x,y,w0)
+		
 		b = None
 		if self.intercept():
 			b = w[-1:,:]
@@ -28,8 +29,15 @@ class SpamsFunctions(object):
 		return w,b
 	def _call(self,x,y,w0):
 		raise Exception("Not defined")
-	def initw(self,x,y):
-		w0 = self.init_strat(x,y)
+	def initw(self,x,y,w0):
+		if w0 is None:
+			w0 = self.init_strat(x,y)
+		else:
+			if self.intercept():
+				w0 = self.vstack((
+					w0,
+					zeros((1,w0.shape[1]))
+				))
 		return np.asfortranarray(w0)
 	def intercept(self):
 		return "intercept" in self.params and self.params["intercept"]
@@ -40,6 +48,7 @@ class SpamsFunctions(object):
 				x, 
 				ones( (x.shape[0],1) ) 
 			))
+
 		return x,y
 	def hstack(self,mats):
 		if any([ssp.issparse(x) for x in mats]):
@@ -47,9 +56,15 @@ class SpamsFunctions(object):
 		else:
 			return hstack(mats)
 		pass
-	def prepall(self,x,y):
+	def vstack(self,mats):
+		if any([ssp.issparse(x) for x in mats]):
+			return ssp.vstack(mats,format=mats[0].format)
+		else:
+			return vstack(mats)
+		pass
+	def prepall(self,x,y,w0):
 		x,y = self.init(x,y)
-		w0 = self.initw(x,y)
+		w0 = self.initw(x,y,w0)
 		return x,y,w0
 
 
