@@ -76,9 +76,10 @@ def experiment(o):
 		"tree":FistaTree(tree,**{
 			"intercept": True,
 			"loss":"square",
-			"regul":"tree-l2",
-			"it0":3,
-			"max_it":150
+			"regul":"multi-task-tree",
+			"it0":10,
+			"lambda2":1000,
+			"max_it":1000
 		}),
 		"treecheck":FistaTree(tree,**{
 			"intercept": True,
@@ -100,9 +101,9 @@ def experiment(o):
 		"flat":FistaFlat(**{
 			"intercept": True,
 			"loss":"square",
-			"regul":"elastic-net",
-			"it0":3,
-			"max_it":150
+			"regul":"l1l2",
+			"it0":50,
+			"max_it":1000
 		})
 	}
 
