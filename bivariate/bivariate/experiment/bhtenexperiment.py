@@ -131,7 +131,10 @@ def experiment(o):
 			w_spams.params["max_it"] = o["opt_maxit"]
 			u_spams.params["max_it"] = o["opt_maxit"]
 			logger.info("... optimising fold lambda")
-			ulambda,wlambda = learner.optimise_lambda(w_lambdas,u_lambdas,Yparts,Xparts)
+			ulambda,wlambda = learner.optimise_lambda(
+				w_lambdas,u_lambdas,Yparts,Xparts,
+				w_lambda=o["w_lambda"],u_lambda=o["u_lambda"]
+			)
 			lambda_set = True
 			if o["lambda_file"] is not None:
 				logger.info("... saving optimised lambdas")
@@ -193,6 +196,10 @@ if __name__ == '__main__':
 					  help="The lambdas to search for u, comma seperater: start,end,gap", default="0.1,1,0.1")
 	parser.add_option("--w-lambdas", dest="w_lambdas_str",
 					  help="The lambdas to search for w, comma seperater: start,end,gap", default="1.0,3,0.1")
+	parser.add_option("--w-lambda", dest="w_lambda",
+					  help="Hardcode the lambda of w", default=None,type="float")
+	parser.add_option("--u-lambda", dest="u_lambda",
+					  help="Hardcode the lambda of u", default=None,type="float")
 	parser.add_option("-o","--experiment-out", dest="exp_out",
 					  help="Output location for the experiment", default="%s/Experiments/EMNLP2013"%home)
 	parser.add_option("--ssw","--sub-sample-word", dest="word_subsample",

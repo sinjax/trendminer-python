@@ -89,7 +89,7 @@ class BatchBivariateLearner(OnlineLearner):
 				break
 		return sumSSE
 
-	def optimise_lambda(self, lambda_w, lambda_u, Yparts, Xparts):
+	def optimise_lambda(self, lambda_w, lambda_u, Yparts, Xparts,w_lambda=None,u_lambda=None):
 		logger.debug("... expanding Yparts")
 		Yparts = Yparts.apply(BatchBivariateLearner._expandY)
 
@@ -103,8 +103,13 @@ class BatchBivariateLearner(OnlineLearner):
 		Vprime_parts = Xparts.apply(
 			BatchBivariateLearner._calculateVprime,u
 		)
-		logger.debug("... Optimising lambda for w")
-		ls.optimise(self.w_func,lambda_w,Vprime_parts,Yparts,name="w")
+		if w_lambda is None:
+			logger.debug("... Optimising lambda for w")
+			ls.optimise(self.w_func,lambda_w,Vprime_parts,Yparts,name="w")
+		else:
+			logger.debug("... Setting hardcoded w: %2.2f"%w_lambda)
+			self.w_func.params['lambda1'] = w_lambda
+
 		logger.debug("... Calculating w with optimal lambda")
 		w,bias = self.w_func.call(Vprime_parts.train_all,Yparts.train_all)
 		w = ssp.csc_matrix(w)
@@ -112,8 +117,12 @@ class BatchBivariateLearner(OnlineLearner):
 		Dprime_parts = Xparts.apply(
 			BatchBivariateLearner._calculateDprime,w,u.shape
 		)
-		logger.debug("... Optimising lambda for u")
-		ls.optimise(self.u_func, lambda_u, Dprime_parts, Yparts,name="u")
+		if u_lambda is None:
+			logger.debug("... Optimising lambda for u")
+			ls.optimise(self.u_func, lambda_u, Dprime_parts, Yparts,name="u")
+		else:
+			logger.debug("... Setting hardcoded w: %2.2f"%u_lambda)
+			self.u_func.params['lambda1'] = u_lambda
 		return [(u,self.u_func.params['lambda1']),(w,self.w_func.params['lambda1'])]
 
 	
