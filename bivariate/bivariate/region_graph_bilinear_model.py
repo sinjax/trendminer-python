@@ -1,26 +1,34 @@
 from pylab import *
+from scipy import sparse as ssp
 import spams
 
 # The RGB model, mocked up on synthetic data
 
-R = 6   # regions
-T = 3   # tasks aka number of outputs for each region
-U = 50   # number of users per region, assumed constant and disjoint
-W = 71   # words in vocabulary
-N = 100  # training examples for each region & task
+R = 3   # regions
+T = 5   # tasks aka number of outputs for each region
+U = 7   # number of users per region, assumed constant and disjoint
+W = 11   # words in vocabulary
+N = 51  # training examples for each region & task
 
 # the weights we aim to learn
 u = np.random.random((R, T, U))
 w = np.random.random((R, T, W))
 b = np.random.random((T, R))
 
-# make them a bit sparse
-u[np.abs(u) < 0.5] = 0
-w[np.abs(w) < 0.5] = 0
+# make them a bit sparse, 
+nri = lambda n,r: array(random(n) * r,dtype=int) # generate some random index
+nw = sum([len(x) for x in w.nonzero()])
+nu = sum([len(x) for x in u.nonzero()])
+# A random set of words is 0 for a set of random tasks
+for x in nri(T/2,T): w[:,x,nri(W/2,W)] = 0
+# A random set of words is 0 for a set of random regions
+for x in nri(R/2,R): w[x,:,nri(W/2,W)] = 0
 
 # now generate some random training data
 X = np.random.random((N, R, U, W))
-X[np.abs(X) < 0.5] = 0
+X[np.random.random((N, R, U, W)) < 0.9] = 0
+print X.nonzero()
+sadasd
 
 # construct the response variable y = u X w + b
 Xw = np.diagonal(
@@ -54,7 +62,7 @@ spamsParams = {
 	"compute_gram":False,
 	"regul":"l1l2",
 	# 'numThreads' : 1,
-	'lambda1' : 0.005, 
+	'lambda1' : 0.5, 
 	# 'it0' : 10, 
 	# 'max_it' : 200,
 	# 'L0' : 0.1, 
@@ -62,13 +70,15 @@ spamsParams = {
 	# 'pos' : False
 }
 
+
+
 for epoch in range(10):
 	# phase 1: learn u & b given fixed w
 	V = np.diagonal(
 		np.tensordot(X,w_hat,axes=([3],[2])),
 		axis1=1, axis2=3
 	)
-
+	spamsParams['loss'] = "square-missing"
 	for r in range(R):
 		# this is (N x U x T)
 		Vr = V[:,:,:,r]
@@ -91,35 +101,54 @@ for epoch in range(10):
 		)
 
 		u_hat[r,:,:] = ur.T
-
-
 	# phase 2:
+	spamsParams['loss'] = "square"
 	# this is: T x N x W x R
 	D = np.diagonal(np.tensordot(u_hat, X, axes=([2],[2])), axis1=3, axis2=0)
 	Yest = diagonal(diagonal(w_hat.dot(D),axis1=1,axis2=2),axis1=0,axis2=2)
 	print "(1) Error: ",norm(Yest - Y)
 
-	# this is: (T*R*N)xW
-	Dstack = vstack([D[t,:,:,r] for t in range(T) for r in range(R)])
-
-	Ytrnarr = [array([Y[:,t,r]]).T for t in range(T) for r in range(R)]
-	Ytrnstack = zeros((T*R*N,T*R)) + nan
-	TR = T*R
-	for tr in range(TR):
-		Ytrnstack[tr*N:(tr+1)*N,tr:tr+1] = Ytrnarr[tr]
-
-	Yspams = asfortranarray(Ytrnstack)
+	Dstack = zeros((N*R*T,W*R*T))
+	i = 0;
+	for r in range(R):
+		for t in range(T):
+			Dstack[i*N:(i+1)*N,i*W:(i+1)*W] = D[t,:,:,r]
+			i+=1 
+	Yntrflat = array([ Y.transpose([2,1,0]).flatten()]).T
+	Yspams = asfortranarray(Yntrflat)
 	Xspams = asfortranarray(Dstack)
-
-	wstack0 = asfortranarray(zeros((Xspams.shape[1],Yspams.shape[1])))
-	wstack = spams.fistaFlat(
-		Yspams,
-		Xspams,
-		wstack0,
-		False,**spamsParams
+	wr0 = asfortranarray(zeros((Xspams.shape[1],Yspams.shape[1])))
+	# set up the group regul
+	wrindex = arange(R*T*W).reshape([R,T,W])
+	ngroups = W * (T + R)
+	eta_g = ones(ngroups,dtype = np.float)
+	groups = ssp.csc_matrix(
+		np.zeros(
+			(ngroups,ngroups),dtype = np.bool
+		),dtype = np.bool
 	)
-	w_hat = wstack.reshape((W,T,R)).transpose((2,1,0))
+	groups_var = zeros([W*R*T,ngroups],dtype=np.bool)
+	i = 0
+	for word in range(W):
+		for r in range(R):
+			groups_var[wrindex[r,:,word],i] = 1
+			i+=1
+		for t in range(T):
+			groups_var[wrindex[:,t,word],i] = 1
+			i+=1
+	groups_var = ssp.csc_matrix(groups_var,dtype=np.bool)
+	graph = {'eta_g': eta_g,'groups' : groups,'groups_var' : groups_var}
+	graphparams = {
+		"loss":"square",
+		"regul":"graph",
+		'lambda1' : 0.5,
+		'verbose' : False
+	}
+	wr = spams.fistaGraph(
+		Yspams, Xspams, wr0, graph,False,**graphparams
+	)
 
+	w_hat = wr.reshape([R,T,W])
 	Yest = diagonal(diagonal(w_hat.dot(D),axis1=1,axis2=2),axis1=0,axis2=2)
 	print "(2) Error: ",norm(Yest - Y)
 	# Vprime is T x N x W x R
