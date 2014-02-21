@@ -131,7 +131,11 @@ for epoch in range(10):
 			rowen = (r+1) * U + d * NL
 			# V[r][d] = X[rowst:rowen,:].dot(ssp.csc_matrix(w_hat[r,:,:].T)).T
 			V[r][d] = ssp.csr_matrix(w_hat[r,:,:]).dot(Xu[rowst:rowen,:].T)
-
+	Vdense = np.diagonal(
+		np.tensordot(X,w_hat,axes=([3],[2])),
+		axis1=1, axis2=3
+	)
+	
 	spamsParams['loss'] = "square-missing"
 	for r in range(R):
 		# this is (N x U x T)
@@ -166,6 +170,16 @@ for epoch in range(10):
 	print "(1) User Opt Error: ",errorBeforeWordOpt
 
 	# Dstack = zeros((N*R*T,W*R*T))
+	# THIS IS JUST TO SEE IF IT IS THE SAME!!!!
+	Dstack_dense = zeros((N*R*T,W*R*T))
+	i = 0;
+	for r in range(R):
+		for t in range(T):
+			Dstack_dense[i*N:(i+1)*N,i*W:(i+1)*W] = D[t,:,:,r]
+			i+=1 
+	# just to see if it is the same, not to be used in ernest!!!
+
+
 	Dstack = ssp.lil_matrix((N*R*T,W*R*T))
 
 	i = 0;
@@ -182,7 +196,7 @@ for epoch in range(10):
 				Dstack.rows[DSn] = range(DSw,DSw + W)
 				Dstack.data[DSn] = Xwrt[n*W:n*W + W]
 			i+=1 
-	
+
 	Yntrflat = array([ Y.transpose([2,1,0]).flatten()]).T
 	Yspams = asfortranarray(Yntrflat)
 	Xspams = Dstack.tocsc()
@@ -190,7 +204,7 @@ for epoch in range(10):
 	
 	wr = spams.fistaGraph(
 		Yspams, Xspams, wr0, graph,False,**graphparams
-	)
+	)	
 	w_hat = wr.reshape([R,T,W])
 	Yest = diagonal(diagonal(w_hat.dot(D),axis1=1,axis2=2),axis1=0,axis2=2)
 	errorAfterWordOpt = norm(Yest - Y)/2 + regulGroups(wr,groups_var) * graphparams['lambda1']
