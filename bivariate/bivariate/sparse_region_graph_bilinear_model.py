@@ -1,6 +1,6 @@
 from pylab import *
 from scipy import sparse as ssp
-import spams
+# import spams
 from IPython.core.debugger import Tracer
 np.random.seed(1)
 # The RGB model, mocked up on synthetic data
@@ -49,9 +49,9 @@ Y += np.random.random(Y.shape)
 # Let's flatten X and make it sparse
 
 # This is X optimised for U optimisation (i.e. W multiplication)
-Xu = ssp.csr_matrix(X.reshape([N * U * R, W]))
-# Xu now has rows which contain users for each region for each day in that ORDER
-# so the rows of Xu are all the users for a region, then all the regions for a day, then all the days
+Xu = ssp.csr_matrix(X.transpose([1,0,2,3]).reshape([R * N * U, W]))
+# Xu now has rows which contain users for each day for each region in that ORDER
+# so the rows of Xu are all the users for a day, then all the days for a region, then all the regions
 
 # This is X optimised for W optimisation (i.e. U multiplication)
 Xw = X.transpose([1,0,3,2]).reshape([R*N*W,U])
@@ -124,23 +124,36 @@ for epoch in range(10):
 	# phase 1: learn u & b given fixed w
 	# Here we make V = region stacked (d x u) x t
 	NL = R * U
-	V = [[None] * N] * R
-	for d in range(N):
-		for r in range(R):
-			rowst = r * U + d * NL
-			rowen = (r+1) * U + d * NL
-			# V[r][d] = X[rowst:rowen,:].dot(ssp.csc_matrix(w_hat[r,:,:].T)).T
-			V[r][d] = ssp.csr_matrix(w_hat[r,:,:]).dot(Xu[rowst:rowen,:].T)
+	V = [
+		Xu[
+			(r*N*U):(r+1)*N*U, :# Grab the r'th block of User/Day rows (r -> r + 1)
+		].dot(
+			ssp.csr_matrix(
+				w_hat[r,:,:] # Dot product with the r'th weighting
+			).T
+		) 
+		for r in range(R)
+	]
+	V = [
+		ssp.vstack([
+				V[r][:,t].tolil().reshape((N,U)).tocsr() 
+				for t in range(T)
+			], format=("csc")
+		) 
+		for r in range(R)
+	]
 	Vdense = np.diagonal(
 		np.tensordot(X,w_hat,axes=([3],[2])),
 		axis1=1, axis2=3
 	)
-	
+
+	difffromdense = sum([abs(vstack([Vdense[:,:,t,r] for t in range(T)]) - V[r].todense()) for r in range(R)])
+	if(difffromdense > 0.0000001): print "The V stack is WRONG"
 	spamsParams['loss'] = "square-missing"
 	for r in range(R):
 		# this is (N x U x T)
 		Yr = Y[:,:,r]
-		Vrstack = ssp.vstack(V[r],format="csc")
+		Vrstack = V[r]
 		Yrstack = zeros((T*N,T)) + nan
 		for t in range(T):
 			Yrstack[t*N:(t+1)*N,t:t+1] = Yr[:,t:t+1]
@@ -216,3 +229,6 @@ for epoch in range(10):
 	# using spams with 
 	#   L_21 term over w_hat[ri,:,wi] for all ri, wi	AND
 	#   L_21 term over w_hat[:,ti,wi] for all ti, wi 
+
+
+sum([abs(vstack([Vdense[:,:,t,r] for t in range(T)]) - V[r].todense()) for r in range(R)])
