@@ -1,7 +1,9 @@
 from pylab import *
 from scipy import sparse as ssp
-# import spams
-from IPython.core.debugger import Tracer
+import spams
+from IPython import embed
+from tools.utils import reshapeflat, reshapecoo
+import time
 np.random.seed(1)
 # The RGB model, mocked up on synthetic data
 
@@ -49,7 +51,7 @@ Y += np.random.random(Y.shape)
 # Let's flatten X and make it sparse
 
 # This is X optimised for U optimisation (i.e. W multiplication)
-Xu = ssp.csr_matrix(X.transpose([1,0,2,3]).reshape([R * N * U, W]))
+Xu = ssp.csc_matrix(X.transpose([1,0,2,3]).reshape([R * N * U, W]))
 # Xu now has rows which contain users for each day for each region in that ORDER
 # so the rows of Xu are all the users for a day, then all the days for a region, then all the regions
 
@@ -103,7 +105,7 @@ groups_var = ssp.csc_matrix(groups_var,dtype=np.bool)
 graph = {'eta_g': eta_g,'groups' : groups,'groups_var' : groups_var}
 graphparams = {
 	"loss":"square",
-	"regul":"graph-ridge",
+	"regul":"graph",
 	'lambda1' : 0.5,
 	'verbose' : False
 }
@@ -111,9 +113,11 @@ graphparams = {
 def regulGroups(weights,groups):
 	tot = 0
 	for g in range(groups.shape[1]):
-		ind = groups_var[:,g:g+1]
-		tot += max(abs(weights[ind.todense() > 0,:]))
+		ind = groups[:,g:g+1]
+		tot += np.max(np.abs(weights[array(ind.todense())[:,0] > 0,:]))
 	return tot
+
+
 # def regulL1L2(weights):
 # 	tot = 0
 # 	# <demo> --- stop ---
@@ -123,32 +127,48 @@ def regulGroups(weights,groups):
 for epoch in range(10):
 	# phase 1: learn u & b given fixed w
 	# Here we make V = region stacked (d x u) x t
+	print "Creating V matrix..."
+	start_time = round(time.time() * 1000)
 	NL = R * U
 	V = [
 		Xu[
 			(r*N*U):(r+1)*N*U, :# Grab the r'th block of User/Day rows (r -> r + 1)
 		].dot(
-			ssp.csr_matrix(
+			ssp.csc_matrix(
 				w_hat[r,:,:] # Dot product with the r'th weighting
 			).T
 		) 
 		for r in range(R)
 	]
+	end_time = round(time.time() * 1000)
+	print "Done dot product, tool=%d ..."%(end_time-start_time)
+	start_time = round(time.time() * 1000)
+	
 	V = [
 		ssp.vstack([
-				V[r][:,t].tolil().reshape((N,U)).tocsr() 
+				# reshapeflat(V[r][:,t].T,(N,U))
+				# V[r][:,t].tocoo().reshape((N,U))
+				reshapecoo(V[r][:,t].T,(N,U)) # the fastest way so far
 				for t in range(T)
 			], format=("csc")
 		) 
 		for r in range(R)
 	]
+	end_time = round(time.time() * 1000)
+	print "Done creating V matrix, tool=%d ..."%(end_time-start_time)
+	start_time = round(time.time() * 1000)
 	Vdense = np.diagonal(
 		np.tensordot(X,w_hat,axes=([3],[2])),
 		axis1=1, axis2=3
 	)
-
+	end_time = round(time.time() * 1000)
+	print "Done creating Vdense matrix, tool=%d ..."%(end_time-start_time)
 	difffromdense = sum([abs(vstack([Vdense[:,:,t,r] for t in range(T)]) - V[r].todense()) for r in range(R)])
-	if(difffromdense > 0.0000001): print "The V stack is WRONG"
+	if(difffromdense > 0.0000001): 
+		print "The V stack is WRONG"
+		sys.exit()
+	
+	# embed()
 	spamsParams['loss'] = "square-missing"
 	for r in range(R):
 		# this is (N x U x T)
@@ -169,7 +189,6 @@ for epoch in range(10):
 			ur0,
 			False,**spamsParams
 		)
-
 		u_hat[r,:,:] = ur.T
 
 		# Tracer()()
@@ -177,9 +196,14 @@ for epoch in range(10):
 	# phase 2:
 	# this is: T x N x W x R
 	D = np.diagonal(np.tensordot(u_hat, X, axes=([2],[2])), axis1=3, axis2=0)
-	Yest = diagonal(diagonal(w_hat.dot(D),axis1=1,axis2=2),axis1=0,axis2=2)
+	Yest = diagonal(
+		diagonal(
+			w_hat.dot(D),axis1=1,axis2=2
+		),axis1=0,axis2=2
+	)
 	flatwhat = array([w_hat.transpose([0,1,2]).flatten()]).T
-	errorBeforeWordOpt = norm(Yest - Y)/2 + regulGroups(flatwhat,groups_var) * graphparams['lambda1']
+	regulFlatwhat = regulGroups(flatwhat,groups_var)
+	errorBeforeWordOpt = norm(Yest - Y)/2 + regulFlatwhat * graphparams['lambda1']
 	print "(1) User Opt Error: ",errorBeforeWordOpt
 
 	# Dstack = zeros((N*R*T,W*R*T))
