@@ -29,6 +29,12 @@ class SpamsFunctions(object):
 		return w,b
 	def _call(self,x,y,w0):
 		raise Exception("Not defined")
+	def _regul_error(self,w):
+		raise Exception("Regul Error is undefined")
+	def _error(self,Yest,Y):
+		return norm(Yest - Y)/2 
+	def error(self,Yest,Y,w):
+		return self._error(Yest,Y) + self._regul_error(w)
 	def initw(self,x,y,w0):
 		if w0 is None:
 			w0 = self.init_strat(x,y)
@@ -77,6 +83,25 @@ class FistaFlat(SpamsFunctions):
 		return w
 	def __str__(self):
 		return "<fistaFlat loss=%s,regul=%s>"%(self.params["loss"],self.params["regul"])
+
+class FistaGraph(SpamsFunctions):
+	"""docstring for FistaGraph"""
+	def __init__(self,graph,**xargs):
+		super(FistaGraph, self).__init__(params=xargs)
+		self.graph = graph
+	def _call(self,x,y,w0):
+		w = spams.fistaGraph(y, x, w0, self.graph,False,**self.params)
+		return w
+	def __str__(self):
+		return "<fistaGraph loss=%s,regul=%s>"%(self.params["loss"],self.params["regul"])
+	def _regul_error(self,weights):
+		tot = 0
+		groups = self.graph["groups_var"]
+		for g in range(groups.shape[1]):
+			ind = groups[:,g:g+1]
+			tot += np.max(np.abs(weights[array(ind.todense())[:,0] > 0,:]))
+		return tot * self.params['lambda1']
+
 
 class FistaTree(SpamsFunctions):
 	"""docstring for FistaTree"""

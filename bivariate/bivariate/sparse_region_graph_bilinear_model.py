@@ -244,6 +244,7 @@ for epoch in range(10):
 	)	
 	w_hat = wr.reshape([R,T,W])
 	Yest = diagonal(diagonal(w_hat.dot(D),axis1=1,axis2=2),axis1=0,axis2=2)
+	# embed()
 	errorAfterWordOpt = norm(Yest - Y)/2 + regulGroups(wr,groups_var) * graphparams['lambda1']
 	print "(2) Word Opt Error: ",errorAfterWordOpt
 	if errorBeforeWordOpt < errorAfterWordOpt:

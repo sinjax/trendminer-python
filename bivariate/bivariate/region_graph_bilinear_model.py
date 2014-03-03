@@ -1,6 +1,9 @@
 from pylab import *
 from scipy import sparse as ssp
 import spams
+from IPython import embed
+
+
 np.random.seed(1)
 # The RGB model, mocked up on synthetic data
 
@@ -8,7 +11,7 @@ R = 3   # regions
 T = 5   # tasks aka number of outputs for each region
 U = 7   # number of users per region, assumed constant and disjoint
 W = 11   # words in vocabulary
-N = 51  # training examples for each region & task
+N = 510  # training examples for each region & task
 
 # the weights we aim to learn
 u = np.random.random((R, T, U))
@@ -97,7 +100,7 @@ def regulGroups(weights,groups):
 	tot = 0
 	for g in range(groups.shape[1]):
 		ind = groups_var[:,g:g+1]
-		tot += max(abs(weights[ind.todense() > 0,:]))
+		tot += np.max(np.abs(weights[array(ind.todense())[:,0] > 0,:]))
 	return tot
 def regulL1L2(weights):
 	tot = 0
