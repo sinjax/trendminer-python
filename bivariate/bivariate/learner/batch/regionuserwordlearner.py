@@ -40,15 +40,24 @@ class SparseRUWLearner(object):
 		- few words are selected with some weighting across all tasks and regions
 		  for selected words
 
+	if intercept mode is turned on, bias is learnt during the user learning step 
+	and subtracted from Y in the word learning step
+
 
 	"""
-	def __init__(self,u_spams,w_spams):
+	def __init__(self,u_spams,w_spams,**params):
 		super(SparseRUWLearner, self).__init__()
 		self.params = {
-			"epochs": 10
+			"epochs": 10,
+			"intercept": True
 		}
+		for x,y in params.items(): self.params[x] = y
 		self.u_spams = u_spams
 		self.w_spams = w_spams
+
+		if self.params["intercept"]:
+			u_spams.params["intercept"] = True
+			w_spams.params["intercept"] = False
 
 
 	def learn(self,Xu,Xw,Y):
@@ -68,38 +77,43 @@ class SparseRUWLearner(object):
 		self.T = Y .shape[1]
 		self.R = Y .shape[2]
 
-		u = np.random.random((self.R, self.T, self.U))
-		w = np.random.random((self.R, self.T, self.W))
-		b = np.random.random((self.T, self.R))
-
 		# initialise estimates
-		u_hat = np.ones_like(u)
-		w_hat = np.ones_like(w)
-		b_hat = np.ones_like(b)
-		error = lambda: self._calculate_error(Y,Xw,u_hat,w_hat)
+		u_hat = np.ones((self.R, self.T, self.U))
+		w_hat = np.ones((self.R, self.T, self.W))
+		b_hat = np.zeros((self.T, self.R))
+
+
+		error = lambda: self._calculate_error(Y,Xw,u_hat,w_hat,b_hat)
 		for epoch in range(self.params["epochs"]):
 			logger.debug("Starting epoch: %d"%epoch)
 			# phase 1: learn u & b given fixed w
 			logger.debug("Error before user: %s"%error())
-			u_hat = self._learnU(Y,Xu,u_hat,w_hat)
+			u_hat,b_hat = self._learnU(Y,Xu,u_hat,w_hat,b_hat)
 			logger.debug("Error after user: %s"%error())
-			w_hat = self._learnW(Y,Xw,u_hat,w_hat)
+			w_hat = self._learnW(Y,Xw,u_hat,w_hat,b_hat)
 			logger.debug("Error after word: %s"%error())
 
-		return u_hat,w_hat
-	def _calculate_error(self,Y,Xw,u_hat,w_hat):
+		return u_hat,w_hat,b_hat
+	def _calculate_error(self,Y,Xw,u_hat,w_hat,b_hat):
 		Dstack = self._stack_D(Xw,u_hat)
 		Yntrflat = array([ Y.transpose([2,1,0]).flatten()]).T
 		flatw = array([w_hat.flatten()]).T
 		Yest = Dstack.dot(flatw)
+		# This is:
+		# 	- making Yest into something the same shape as Y
+		# 	- Then adding the bias
+		#	- Then flattening Yest again
+		# It is hidious and should not be done like this.
+		Yest = array([(Yest.reshape([self.R,self.T,self.N]
+				).transpose([2,1,0]) + b_hat
+			).transpose([2,1,0]).flatten()]).T
 		err = self.w_spams.error(Yest,Yntrflat,flatw)
 		return err
 
-	def _learnU(self,Y,Xu,u_hat,w_hat):
-		U,W,N,T,R = self.U,self.W,self.N,self.T,self.R
-		# phase 1: learn u & b given fixed w
+	def _stack_V(self,Xu,w_hat):
 		logger.debug("Creating V matrix...")
 		start_time = round(time.time() * 1000)
+		U,W,N,T,R = self.U,self.W,self.N,self.T,self.R
 		V = [
 			Xu[
 				(r*N*U):(r+1)*N*U, :# Grab the r'th block of User/Day rows (r -> r + 1)
@@ -125,7 +139,14 @@ class SparseRUWLearner(object):
 		]
 		end_time = round(time.time() * 1000)
 		logger.debug("Done creating V matrix, tool=%d ..."%(end_time-start_time))
+		return V
 
+	def _learnU(self,Y,Xu,u_hat,w_hat,b_hat):
+		U,W,N,T,R = self.U,self.W,self.N,self.T,self.R
+		# phase 1: learn u & b given fixed w
+		
+		V = self._stack_V(Xu,w_hat)
+		
 		for r in range(R):
 			# this is (N x U x T)
 			Yr = Y[:,:,r]
@@ -139,9 +160,13 @@ class SparseRUWLearner(object):
 
 			ur0 = asfortranarray(zeros((Xspams.shape[1],Yspams.shape[1])))
 			# ur0 = ssp.csr_matrix((Xspams.shape[1],Yspams.shape[1]))
-			ur,_ = self.u_spams.call(Xspams,Yspams,ur0)
+			ur,ur_bias = self.u_spams.call(Xspams,Yspams,ur0)
 			u_hat[r,:,:] = ur.T
-		return u_hat
+			if self.params["intercept"]:
+				b_hat[:,r] = ur_bias
+
+		return u_hat,b_hat
+
 	def _stack_D(self,Xw,u_hat):
 		U,W,N,T,R = self.U,self.W,self.N,self.T,self.R
 		Dstack = ssp.lil_matrix((N*R*T,W*R*T))
@@ -161,11 +186,12 @@ class SparseRUWLearner(object):
 					Dstack.data[DSn] = Xwrt[n*W:n*W + W]
 				i+=1 
 		return Dstack
-	def _learnW(self,Y,Xw,u_hat,w_hat):
+
+	def _learnW(self,Y,Xw,u_hat,w_hat,b_hat):
 		U,W,N,T,R = self.U,self.W,self.N,self.T,self.R
 
 		Dstack = self._stack_D(Xw,u_hat)
-		Yntrflat = array([ Y.transpose([2,1,0]).flatten()]).T
+		Yntrflat = array([ (Y-b_hat).transpose([2,1,0]).flatten()]).T
 		Yspams = asfortranarray(Yntrflat)
 		Xspams = Dstack.tocsc()
 		wr0 = asfortranarray(zeros((Xspams.shape[1],Yspams.shape[1])))

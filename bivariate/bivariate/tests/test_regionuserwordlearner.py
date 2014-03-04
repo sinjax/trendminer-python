@@ -11,8 +11,8 @@ def test_random():
 
 	R = 3   # regions
 	T = 5   # tasks aka number of outputs for each region
-	U = 103   # number of users per region, assumed constant and disjoint
-	W = 201   # words in vocabulary
+	U = 7   # number of users per region, assumed constant and disjoint
+	W = 11   # words in vocabulary
 	N = 510  # training examples for each region & task
 
 	# the weights we aim to learn
@@ -56,7 +56,7 @@ def test_random():
 
 
 
-	learner = SRUWLearner(prep_uspams(), prep_wspams(U,W,N,T,R))
+	learner = SRUWLearner(prep_uspams(), prep_wspams(U,W,N,T,R), intercept=False)
 	learner.learn(Xu,Xw,Y)
 
 def prep_uspams():
