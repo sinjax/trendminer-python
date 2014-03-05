@@ -2,6 +2,7 @@
 from bivariate.dataset import userwordregion
 from bivariate.dataset import regionpolls as rpt
 from scipy import io as sio
+from scipy import sparse as ssp
 from IPython import embed
 import os
 import logging;logger = logging.getLogger("root")
@@ -24,7 +25,7 @@ def loaduserwords(f,key):
 	data = alldata['data']
 	ir = alldata['ir']
 	jc = alldata['jc']
-	return scipy.sparse.csc_matrix((data, ir, jc))
+	return ssp.csc_matrix((data, ir, jc))
 
 
 
