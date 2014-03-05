@@ -10,6 +10,24 @@ USER_WORD_MATRIX = "/home/ss/Experiments/bilinear/user_vsr_polls_15days.mat"
 POLL_DATA = "/home/ss/Experiments/bilinear/polls_demographics.mat"
 from optparse import OptionParser
 
+def loaduserwords(f,key):
+	try:
+		logger.debug("Trying to use scipy to load matrix")
+		userwordmat = sio.loadmat(f)
+		userwords = userwordmat[key]
+		return userwords
+	except Exception, e:
+		logger.debug("scipy load failed, trying h5py load")
+	import h5py
+	renormd = h5py.File(f)
+	alldata = renormd[key]
+	data = alldata['data']
+	ir = alldata['ir']
+	jc = alldata['jc']
+	return scipy.sparse.csc_matrix((data, ir, jc))
+
+
+
 parser = OptionParser()
 parser.add_option("-m", "--user-region-map", dest="user_region_map",
                   help="File containing the user to region man", metavar="FILE",default=USER_REGION_MAP_FILE)
@@ -39,9 +57,8 @@ userregion = [
 userregionmap = dict([(int(a[0]), int(a[1])) for a in userregion])
 
 logger.debug("Loading day/user/word matrix: %s"%options.user_word_matrix)
-userwordmat = sio.loadmat(options.user_word_matrix)
-userwords = userwordmat[options.user_word_matrix_key]
 
+userwords = loaduserwords(options.user_word_matrix,options.user_word_matrix_key)
 logger.debug("Constructing flat region matrices")
 regiondayuserword, regiondayworduser = userwordregion.transform(
 	userwords,userregionmap,options.ndays
