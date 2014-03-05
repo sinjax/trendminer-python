@@ -9,4 +9,4 @@ warnings.simplefilter("ignore")
 if os.path.exists("logconfig.ini"): 
 	logging.config.fileConfig("logconfig.ini")
 	logger = logging.getLogger("root")
-	logger.debug("Logger prepared!")
+	# logger.debug("Logger prepared!")
