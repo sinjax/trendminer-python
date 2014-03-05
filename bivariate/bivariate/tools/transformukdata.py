@@ -26,6 +26,10 @@ parser.add_option("-o", "--output", dest="output", default=".",
 
 (options, args) = parser.parse_args()
 
+if not (os.path.exists(options.user_region_map) and os.path.exists(options.user_word_matrix) and os.path.exists(options.poll_file)):
+	raise Exception("File's not found!")
+
+
 logger.debug("Reading map file: %s"%options.user_region_map)
 
 userregion = [
