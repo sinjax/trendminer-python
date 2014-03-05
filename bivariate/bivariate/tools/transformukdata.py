@@ -62,7 +62,7 @@ logger.debug("Loading day/user/word matrix: %s"%options.user_word_matrix)
 userwords = loaduserwords(options.user_word_matrix,options.user_word_matrix_key)
 logger.debug("Constructing flat region matrices")
 regiondayuserword, regiondayworduser = userwordregion.transform(
-	userwords,userregionmap,options.ndays
+	userwords,userregionmap,int(options.ndays)
 )
 
 logger.debug("Loading polls")
