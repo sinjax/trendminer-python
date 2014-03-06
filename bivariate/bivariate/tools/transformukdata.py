@@ -16,7 +16,7 @@ def loaduserwords(f,key):
 		logger.debug("Trying to use scipy to load matrix")
 		userwordmat = sio.loadmat(f)
 		userwords = userwordmat[key]
-		return userwords
+		return userwords,False
 	except Exception, e:
 		logger.debug("scipy load failed, trying h5py load")
 	import h5py
@@ -25,7 +25,9 @@ def loaduserwords(f,key):
 	data = alldata['data']
 	ir = alldata['ir']
 	jc = alldata['jc']
-	return ssp.csc_matrix((data, ir, jc))
+	mat = ssp.csc_matrix((data, ir, jc))
+	logger.debug("Data loaded, turning into lil")
+	return mat.tolil(),True
 
 
 
@@ -42,6 +44,9 @@ parser.add_option("-k", "--user-word-matrix-key", dest="user_word_matrix_key", d
                   help="The key to get the matrix from in the file")
 parser.add_option("-o", "--output", dest="output", default=".",
                   help="Root directory to output the matrices")
+parser.add_option("-f", "--force-h5py-output", dest="force_h5py", action="store_true", 
+				  default=False,
+                  help="Force output in h5py mode")
 
 (options, args) = parser.parse_args()
 
@@ -59,7 +64,8 @@ userregionmap = dict([(int(a[0]), int(a[1])) for a in userregion])
 
 logger.debug("Loading day/user/word matrix: %s"%options.user_word_matrix)
 
-userwords = loaduserwords(options.user_word_matrix,options.user_word_matrix_key)
+userwords,useh5py = loaduserwords(options.user_word_matrix,options.user_word_matrix_key)
+useh5py = useh5py or options.force_h5py
 logger.debug("Constructing flat region matrices")
 regiondayuserword, regiondayworduser = userwordregion.transform(
 	userwords,userregionmap,int(options.ndays)
@@ -68,17 +74,50 @@ regiondayuserword, regiondayworduser = userwordregion.transform(
 logger.debug("Loading polls")
 regionpolls = rpt.transform(options.poll_file)
 if not os.path.exists(options.output): os.makedirs(options.output)
-file_out = "%s/XY.mat"%options.output
-logger.debug("Outputting file: %s"%file_out)
+X_out = "%s/X.mat"%options.output
+meta_out = "%s/meta.mat"%options.output
+Y_out = "%s/Y.mat"%options.output
+
+logger.debug("Outputting meta information to: %s"%meta_out)
 sio.savemat(
 	file_out,
 	{
 		"D": options.ndays, 
 		"R": regionpolls.shape[2], "T": regionpolls.shape[1],
 		"W": regiondayuserword.shape[1],
-		"U": regiondayworduser.shape[1],
-		"regiondayuserword":regiondayuserword, 
-		"regiondayworduser":regiondayworduser,
+		"U": regiondayworduser.shape[1]
+	}
+)
+logger.debug("Outputting poll information to: %s"%Y_out)
+sio.savemat(
+	Y_out,
+	{
 		"regionpolls":regionpolls
 	}
 )
+logger.debug("Outputting main X matrix to: %s"%X_out)
+if useh5py:
+	logger.debug("Saving main matrices with h5py")
+	def save_group(h5file, name, mat):
+		if not mat.isspmatrix_csr(mat): mat = mat.tocsr()
+		
+		tosaveg = h5file.create_group(name)
+		tosaveg.create_dataset("indptr",data=mat.indptr,compression='lzf')
+		tosaveg.create_dataset("data",data=mat.data,compression='lzf')
+		tosaveg.create_dataset("indices",data=mat.indices,compression='lzf')
+
+	tosave = h5py.File("test.h5py.mat", "w")
+	
+	save_group(tosave,"regiondayuserword",regiondayuserword)
+	save_group(tosave,"regiondayworduser",regiondayworduser)
+	
+	tosave.flush()
+	tosave.close()
+else:
+	logger.debug("Saving main matrices with scipy")
+	sio.savemat(
+		X_out, {
+			"regiondayuserword":regiondayuserword, 
+			"regiondayworduser":regiondayworduser,
+		}
+	)

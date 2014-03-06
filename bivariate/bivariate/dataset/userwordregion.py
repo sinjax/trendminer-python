@@ -27,25 +27,30 @@ def transform(dayuserwords, userregionmap, ndays):
 	regiondayworduser = None
 
 	# dayuserwords_r = ssp.csr_matrix(dayuserwords)
-	dayuserwords_l = ssp.lil_matrix(dayuserwords)
+	if not ssp.isspmatrix_lil(dayuserwords):
+		logger.debug("The data array must be lil, transforming...")
+		dayuserwords = dayuserwords.tolil()
 
 	
 	logger.debug("Filling (R x D x U, W) matrix")
 	rows = []
 	data = []
 	for r in range(R):
+		logger.debug("Starting region: %d"%r)
 		rusers = set(regionusermap[r])
 		for n in range(N):
+			logger.debug("Starting day: %d"%n)
+
 			for u in range(U):
 				if u not in rusers: 
 					rows += [[]]
 					data += [[]]
 				else:
 					i = n * U + u
-					rows += [dayuserwords_l.rows[i]]
-					data += [dayuserwords_l.data[i]]
+					rows += [dayuserwords[i,:].rows]
+					data += [dayuserwords.[i,:].indices]
 	
-	regiondayuserword = ssp.lil_matrix((1,1),dtype=dayuserwords_l.dtype)
+	regiondayuserword = ssp.lil_matrix((1,1),dtype=dayuserwords.dtype)
 	regiondayuserword.data = data
 	regiondayuserword.rows = rows
 	regiondayuserword._shape = (R * N * U, W)
