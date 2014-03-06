@@ -47,8 +47,8 @@ def transform(dayuserwords, userregionmap, ndays):
 					data += [[]]
 				else:
 					i = n * U + u
-					rows += [dayuserwords[i,:].rows]
-					data += [dayuserwords.[i,:].indices]
+					rows += [dayuserwords.rows[i]]
+					data += [dayuserwords.data[i]]
 	
 	regiondayuserword = ssp.lil_matrix((1,1),dtype=dayuserwords.dtype)
 	regiondayuserword.data = data

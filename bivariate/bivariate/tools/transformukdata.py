@@ -34,9 +34,9 @@ def loaduserwords(f,key):
 parser = OptionParser()
 parser.add_option("-m", "--user-region-map", dest="user_region_map",
                   help="File containing the user to region man", metavar="FILE",default=USER_REGION_MAP_FILE)
-parser.add_option("-w", "--user-word-matrix", dest="user_word_matrix", default=USER_WORD_MATRIX,
+parser.add_option("-w", "--user-word-matrix", dest="user_word_matrix", default=USER_WORD_MATRIX, metavar="FILE",
                   help="Matlab file containing a matrix of size: (user * day) x words")
-parser.add_option("-p", "--poll-data", dest="poll_file", default=POLL_DATA,
+parser.add_option("-p", "--poll-data", dest="poll_file", default=POLL_DATA, metavar="FILE",
                   help="A matlab file containing region polls as matrices with 'region' in their name")
 parser.add_option("-n", "--number-of-days", dest="ndays", default=15,
                   help="Number of days")
@@ -80,7 +80,7 @@ Y_out = "%s/Y.mat"%options.output
 
 logger.debug("Outputting meta information to: %s"%meta_out)
 sio.savemat(
-	file_out,
+	meta_out,
 	{
 		"D": options.ndays, 
 		"R": regionpolls.shape[2], "T": regionpolls.shape[1],
@@ -97,18 +97,20 @@ sio.savemat(
 )
 logger.debug("Outputting main X matrix to: %s"%X_out)
 if useh5py:
+	import h5py
 	logger.debug("Saving main matrices with h5py")
 	def save_group(h5file, name, mat):
-		if not mat.isspmatrix_csr(mat): mat = mat.tocsr()
+		if not ssp.isspmatrix_csr(mat): mat = mat.tocsr()
 		
 		tosaveg = h5file.create_group(name)
 		tosaveg.create_dataset("indptr",data=mat.indptr,compression='lzf')
 		tosaveg.create_dataset("data",data=mat.data,compression='lzf')
 		tosaveg.create_dataset("indices",data=mat.indices,compression='lzf')
 
-	tosave = h5py.File("test.h5py.mat", "w")
-	
+	tosave = h5py.File(X_out, "w")
+	logger.debug("Saving userword group")
 	save_group(tosave,"regiondayuserword",regiondayuserword)
+	logger.debug("Saving worduser group")
 	save_group(tosave,"regiondayworduser",regiondayworduser)
 	
 	tosave.flush()
