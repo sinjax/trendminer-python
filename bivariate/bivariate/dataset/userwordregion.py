@@ -2,6 +2,76 @@ import logging;logger = logging.getLogger("root")
 from scipy import sparse as ssp
 from IPython import embed
 from pylab import array,hstack,ones
+from bivariate.tools.utils import h5py_sparse_row, h5py_save_sparse_row
+import shutil
+import os
+from scipy import io as sio
+
+def for_days(userword,worduser,*days):
+	embed()
+
+def read_split_userwordregion(inp,*days,**xargs):
+	cache = None
+	if "cache" in xargs: 
+		cache = xargs["cache"]
+	if not os.path.exists(inp):
+		raise Exception("Input does not exist")
+	R = len(os.listdir(inp))
+	allmats = {}
+	for r in range(R):
+		rdir = os.sep.join([inp,"r%d"%r])
+		for n in days:
+			if cache is not None:
+				if "r%dn%d"%(r,n) in cache:
+					for k,mat in cache["r%dn%d"%(r,n)].items():
+						if not k in allmats: allmats[k] = []
+						allmats[k] += [mat]
+					continue
+				else:
+					cache["r%dn%d"%(r,n)] = dict()
+			toload = os.sep.join([rdir,"n%d.mat"%n])
+			mats = sio.loadmat(toload)
+			for k,mat in mats.items():
+				if not ssp.issparse(mat): continue
+				if not k in allmats: allmats[k] = []
+				allmats[k] += [mat]
+				if cache is not None:
+					cache["r%dn%d"%(r,n)][k] = mat
+	logger.debug("Stacking word/users")
+	rdworduser = ssp.vstack(allmats['worduser'],format="csr")
+	logger.debug("Stacking user/words")
+	rduserword = ssp.vstack(allmats['userword'],format="csr")
+
+	return rduserword,rdworduser
+
+def split_userwordregion(X,ndays,output):
+	if os.path.exists(output):
+		shutil.rmtree(output)
+	os.makedirs(output)
+	userword = X['regiondayuserword']
+	worduser = X['regiondayworduser']
+	U = worduser.shape[1]
+	W = userword.shape[1]
+	N = ndays
+	R = userword.shape[0] / float(N) / U
+
+	for r in range(R):
+		regiondir = os.sep.join([output,"r%d"%r])
+		os.makedirs(regiondir)
+		for n in range(N):
+			dayf = os.sep.join([regiondir,"n%d.mat"%n])
+			u_offset = n * U + r * N * U
+			urows = [x + u_offset for x in range(U)]
+			w_offset = n * W + r * N * W
+			wrows = [x + w_offset for x in range(W)]
+			logger.debug("Extracting and saving region: %d, day: %d"%(r,n))
+			subX = {
+				"userword": userword[urows,:],
+				"worduser": worduser[wrows,:],
+			}
+			sio.savemat(dayf, subX)
+
+
 def transform(dayuserwords, userregionmap, ndays):
 	"""
 		userwords - a matrix containing a user per row grouped by dayuserwords
