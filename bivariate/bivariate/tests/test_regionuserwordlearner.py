@@ -4,7 +4,8 @@ from scipy import sparse as ssp
 from IPython import embed
 import time
 from ..learner.batch.regionuserwordlearner import SparseRUWLearner as SRUWLearner
-from ..learner.spamsfunc import *
+from ..learner.batch.regionuserwordlearner import prep_uspams, prep_wspams
+
 def test_random():
 	np.random.seed(1)
 	# The RGB model, mocked up on synthetic data
@@ -55,48 +56,10 @@ def test_random():
 	# so the rows of Xw are all the words for a day, then all the days for a region
 
 
-
-	learner = SRUWLearner(prep_uspams(), prep_wspams(U,W,N,T,R), intercept=False)
+	w_spams = prep_wspams(U,W,T,R)
+	embed()
+	learner = SRUWLearner(prep_uspams(), w_spams, intercept=True)
 	learner.learn(Xu,Xw,Y)
-
-def prep_uspams():
-	spamsParams = {
-		"loss":"square-missing",
-		"compute_gram":False,
-		"regul":"l1l2",
-		'lambda1' : 0.5, 
-	}
-	return FistaFlat(**spamsParams)
-def prep_wspams(U,W,N,T,R):
-	# set up the group regul
-	wrindex = arange(R*T*W).reshape([R,T,W])
-	ngroups = W * (T + R)
-	eta_g = ones(ngroups,dtype = np.float)
-	groups = ssp.csc_matrix(
-		np.zeros(
-			(ngroups,ngroups),dtype = np.bool
-		),dtype = np.bool
-	)
-	groups_var = zeros([W*R*T,ngroups],dtype=np.bool)
-	i = 0
-	for word in range(W):
-		for r in range(R):
-			groups_var[wrindex[r,:,word],i] = 1
-			i+=1
-		for t in range(T):
-			groups_var[wrindex[:,t,word],i] = 1
-			i+=1
-	groups_var = ssp.csc_matrix(groups_var,dtype=np.bool)
-	graph = {'eta_g': eta_g,'groups' : groups,'groups_var' : groups_var}
-	graphparams = {
-		"loss":"square",
-		"regul":"graph",
-		'lambda1' : 0.5,
-		'verbose' : False
-	}
-
-	return FistaGraph(graph,**graphparams)
-
 
 if __name__ == '__main__':
 	test_random()

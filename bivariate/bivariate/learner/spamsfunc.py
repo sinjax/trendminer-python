@@ -4,6 +4,8 @@ import scipy.sparse as ssp
 from IPython import embed
 import logging;logger = logging.getLogger("root")
 
+def default_init(x,y):
+	return zeros((x.shape[1],y.shape[1]))
 class SpamsFunctions(object):
 	"""Setup a spams function and call it"""
 	def __init__(self, missing=True,init_strat=None,params=None):
@@ -14,7 +16,8 @@ class SpamsFunctions(object):
 			if self.params["loss"] is "square":
 				self.params["loss"] = "square-missing"
 		if not self.init_strat:
-			self.init_strat = lambda x,y:zeros((x.shape[1],y.shape[1]))
+			self.init_strat = default_init
+			# self.init_strat = lambda x,y:zeros((x.shape[1],y.shape[1]))
 
 	def call(self,x,y,w0=None):
 		logger.debug("Calling %s"%str(self))
@@ -86,20 +89,18 @@ class FistaFlat(SpamsFunctions):
 
 class FistaGraph(SpamsFunctions):
 	"""docstring for FistaGraph"""
-	def __init__(self,graph,**xargs):
+	def __init__(self,graph,allgs,**xargs):
 		super(FistaGraph, self).__init__(params=xargs)
 		self.graph = graph
+		self.allgs = allgs
 	def _call(self,x,y,w0):
 		w = spams.fistaGraph(y, x, w0, self.graph,False,**self.params)
 		return w
 	def __str__(self):
 		return "<fistaGraph loss=%s,regul=%s>"%(self.params["loss"],self.params["regul"])
 	def _regul_error(self,weights):
-		tot = 0
-		groups = self.graph["groups_var"]
-		for g in range(groups.shape[1]):
-			ind = groups[:,g:g+1]
-			tot += np.max(np.abs(weights[array(ind.todense())[:,0] > 0,:]))
+		allgs = self.allgs
+		tot = sum([max(abs(weights[ind,:])) for ind in allgs])
 		return tot * self.params['lambda1']
 
 

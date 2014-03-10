@@ -5,6 +5,7 @@ import scipy.sparse as ssp
 import time
 from IPython import embed
 from ...tools.utils import reshapeflat, reshapecoo
+from ...learner.spamsfunc import *
 
 
 class SparseRUWLearner(object):
@@ -87,14 +88,19 @@ class SparseRUWLearner(object):
 		for epoch in range(self.params["epochs"]):
 			logger.debug("Starting epoch: %d"%epoch)
 			# phase 1: learn u & b given fixed w
-			logger.debug("Error before user: %s"%error())
+			logger.debug("... error epoch start: %s"%error())
+			# logger.debug("Error before user: %s"%error())
 			u_hat,b_hat = self._learnU(Y,Xu,u_hat,w_hat,b_hat)
-			logger.debug("Error after user: %s"%error())
+			logger.debug("... u sparcity: %2.2f"%float(sum((u_hat == 0))/u_hat.size))
+			# logger.debug("Error after user: %s"%error())
 			w_hat = self._learnW(Y,Xw,u_hat,w_hat,b_hat)
-			logger.debug("Error after word: %s"%error())
+			logger.debug("... w sparcity: %2.2f"%float(sum((w_hat == 0))/w_hat.size))
+			# logger.debug("Error after word: %s"%error())
 
 		return u_hat,w_hat,b_hat
 	def _calculate_error(self,Y,Xw,u_hat,w_hat,b_hat):
+		# embed()
+		logger.debug("Calculating error...")
 		Dstack = self._stack_D(Xw,u_hat)
 		Yntrflat = array([ Y.transpose([2,1,0]).flatten()]).T
 		flatw = array([w_hat.flatten()]).T
@@ -108,6 +114,7 @@ class SparseRUWLearner(object):
 				).transpose([2,1,0]) + b_hat
 			).transpose([2,1,0]).flatten()]).T
 		err = self.w_spams.error(Yest,Yntrflat,flatw)
+		logger.debug("Done calculating error...")
 		return err
 
 	def _stack_V(self,Xu,w_hat):
@@ -173,18 +180,24 @@ class SparseRUWLearner(object):
 
 		i = 0;
 		NW = N * W
+		logger.debug("Calling _stack_D")
 		for r in range(R):
 			# I expect this to be (N * W) * U
 			Xwr = Xw[r*NW:(r+1)*NW,:]
 			for t in range(T):
 				# I expect this to be (N * W) * 1
-				Xwrt = Xwr.dot(u_hat[r,t,:])
+				# Xwrt = Xwr.dot(u_hat[r,t,:])
+				Xwrt = ssp.csr_matrix(Xwr.dot(u_hat[r,t,:]))
 				for n in range(N):
 					DSn = (i * N + n)
 					DSw = (i * W )
-					Dstack.rows[DSn] = range(DSw,DSw + W)
-					Dstack.data[DSn] = Xwrt[n*W:n*W + W]
+					# Dstack.rows[DSn] = range(DSw,DSw + W)
+					# Dstack.data[DSn] = Xwrt[n*W:n*W + W]
+					sub = ssp.lil_matrix(Xwrt[:,n*W:n*W + W])
+					Dstack.rows[DSn] = sub.rows[0]
+					Dstack.data[DSn] = sub.data[0]
 				i+=1 
+		logger.debug("Done")
 		return Dstack
 
 	def _learnW(self,Y,Xw,u_hat,w_hat,b_hat):
@@ -200,3 +213,49 @@ class SparseRUWLearner(object):
 		w_hat = wr.reshape([R,T,W])
 
 		return w_hat
+
+def prep_uspams(**otherargs):
+	spamsParams = {
+		"loss":"square-missing",
+		"compute_gram":False,
+		"regul":"l1l2",
+		'lambda1' : 0.5, 
+	}
+	spamsParams = dict(spamsParams.items() + otherargs.items())
+	return FistaFlat(**spamsParams)
+def prep_wspams(U,W,T,R, **otherargs):
+	logger.debug("Preparing the graph regulariser")
+	# set up the group regul
+	wrindex = arange(R*T*W).reshape([R,T,W])
+	ngroups = W * (T + R)
+	eta_g = ones(ngroups,dtype = np.float)
+	groups = ssp.csc_matrix(
+		(ngroups,ngroups),dtype = np.bool
+	)
+
+	groups_var = ssp.dok_matrix((W*R*T,ngroups),dtype=np.bool)
+	i = 0
+	logger.debug("Creating the sausage groups")
+	allgs = []
+	for word in range(W):
+		for r in range(R):
+			allgs += [wrindex[r,:,word]]
+			groups_var[wrindex[r,:,word],i] = 1
+			i+=1
+		for t in range(T):
+			groups_var[wrindex[:,t,word],i] = 1
+			allgs += [wrindex[:,t,word]]
+			i+=1
+
+	logger.debug("Done creating group_var")
+	groups_var = ssp.csc_matrix(groups_var,dtype=np.bool)
+	graph = {'eta_g': eta_g,'groups' : groups,'groups_var' : groups_var}
+	graphparams = {
+		"loss":"square",
+		"regul":"graph",
+		'lambda1' : 0.5,
+		'verbose' : False
+	}
+	graphparams = dict(graphparams.items() + otherargs.items())
+
+	return FistaGraph(graph,allgs,**graphparams)
