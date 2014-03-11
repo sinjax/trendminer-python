@@ -86,11 +86,13 @@ class FistaFlat(SpamsFunctions):
 		return w
 	def __str__(self):
 		return "<fistaFlat loss=%s,regul=%s>"%(self.params["loss"],self.params["regul"])
+	def _regul_error(self,w):
+		return norm(w,2,axis=1).sum() * self.params['lambda1']
 
 class FistaGraph(SpamsFunctions):
 	"""docstring for FistaGraph"""
-	def __init__(self,graph,allgs,**xargs):
-		super(FistaGraph, self).__init__(params=xargs)
+	def __init__(self,graph,allgs,missing=False,**xargs):
+		super(FistaGraph, self).__init__(missing=missing, params=xargs)
 		self.graph = graph
 		self.allgs = allgs
 	def _call(self,x,y,w0):

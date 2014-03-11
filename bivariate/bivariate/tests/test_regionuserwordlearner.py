@@ -57,7 +57,6 @@ def test_random():
 
 
 	w_spams = prep_wspams(U,W,T,R)
-	embed()
 	learner = SRUWLearner(prep_uspams(), w_spams, intercept=True)
 	learner.learn(Xu,Xw,Y)
 

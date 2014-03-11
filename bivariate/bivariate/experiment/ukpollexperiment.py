@@ -5,7 +5,7 @@ from IPython import embed
 import logging;logger = logging.getLogger("root")
 from experimentfolds import *
 from optparse import OptionParser
-from ..learner.batch.regionuserwordlearner import SparseRUWLearner,prep_wspams,prep_uspams
+from ..learner.batch.regionuserwordlearner import SparseRUWLearner,prep_wspams,prep_uspams,prep_w_graphbit
 import cPickle as pickle
 parser = OptionParser()
 parser.add_option("-x", "--user-word-mat", dest="xroot",
@@ -28,15 +28,17 @@ U = wu.shape[1]
 R = wu.shape[0]/W
 T = Y.shape[1]
 
-w_spams = None
+w_spams_graphbit = None
 
 if options.w_spams_file and os.path.exists(options.w_spams_file):
-	w_spams = pickle.load(file(options.w_spams_file,"rb"))
+	w_spams_graphbit = pickle.load(file(options.w_spams_file,"rb"))
 else:
-	w_spams = prep_wspams(U,W,T,R)
+	w_spams_graphbit = prep_w_graphbit(U,W,T,R)
 	if options.w_spams_file:
-		pickle.dump(w_spams,file(options.w_spams_file,"wb"))
-u_spams = prep_uspams(lambda1=0.01)
+		pickle.dump(w_spams_graphbit,file(options.w_spams_file,"wb"))
+
+w_spams = prep_wspams(U,W,T,R,graphbit=w_spams_graphbit,lambda1=0.001)
+u_spams = prep_uspams(lambda1=0.05)
 learner = SparseRUWLearner(u_spams,w_spams)
 
 for fold in experiments:

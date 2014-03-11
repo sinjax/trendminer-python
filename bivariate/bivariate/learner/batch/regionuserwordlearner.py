@@ -50,7 +50,8 @@ class SparseRUWLearner(object):
 		super(SparseRUWLearner, self).__init__()
 		self.params = {
 			"epochs": 10,
-			"intercept": True
+			"intercept": True,
+			"bilinear_tolerance": 0.00001
 		}
 		for x,y in params.items(): self.params[x] = y
 		self.u_spams = u_spams
@@ -83,23 +84,33 @@ class SparseRUWLearner(object):
 		w_hat = np.ones((self.R, self.T, self.W))
 		b_hat = np.zeros((self.T, self.R))
 
+		old_u_hat = u_hat
+		old_w_hat = w_hat
+
 
 		error = lambda: self._calculate_error(Y,Xw,u_hat,w_hat,b_hat)
+		tol = lambda a,b:norm(a.flatten() - b.flatten(),2) < self.params['bilinear_tolerance']
 		for epoch in range(self.params["epochs"]):
 			logger.debug("Starting epoch: %d"%epoch)
 			# phase 1: learn u & b given fixed w
 			logger.debug("... error epoch start: %s"%error())
 			# logger.debug("Error before user: %s"%error())
 			u_hat,b_hat = self._learnU(Y,Xu,u_hat,w_hat,b_hat)
+				
 			logger.debug("... u sparcity: %2.2f"%float(sum((u_hat == 0))/u_hat.size))
+			
 			# logger.debug("Error after user: %s"%error())
 			w_hat = self._learnW(Y,Xw,u_hat,w_hat,b_hat)
 			logger.debug("... w sparcity: %2.2f"%float(sum((w_hat == 0))/w_hat.size))
+			if tol(u_hat,old_u_hat) and tol(w_hat,old_w_hat):
+				logger.debug("No change in previous epoch in either w or u, ending early")
+				break
+			old_w_hat = w_hat
+			old_u_hat = u_hat
 			# logger.debug("Error after word: %s"%error())
 
 		return u_hat,w_hat,b_hat
 	def _calculate_error(self,Y,Xw,u_hat,w_hat,b_hat):
-		# embed()
 		logger.debug("Calculating error...")
 		Dstack = self._stack_D(Xw,u_hat)
 		Yntrflat = array([ Y.transpose([2,1,0]).flatten()]).T
@@ -113,7 +124,12 @@ class SparseRUWLearner(object):
 		Yest = array([(Yest.reshape([self.R,self.T,self.N]
 				).transpose([2,1,0]) + b_hat
 			).transpose([2,1,0]).flatten()]).T
-		err = self.w_spams.error(Yest,Yntrflat,flatw)
+		# uerr_regul = sum([self.u_spams._regul_error(u_hat[x,:,:]) for x in range(u_hat.shape[0]) ])
+		uerr_regul = 0
+		werr = self.w_spams.error(Yest,Yntrflat,flatw)
+		logger.debug("w_err: %2.2f"%werr)
+		logger.debug("u_err regul: %2.2f"%uerr_regul)
+		err =  werr + uerr_regul
 		logger.debug("Done calculating error...")
 		return err
 
@@ -201,14 +217,15 @@ class SparseRUWLearner(object):
 		return Dstack
 
 	def _learnW(self,Y,Xw,u_hat,w_hat,b_hat):
+		logger.debug("Learning W")
 		U,W,N,T,R = self.U,self.W,self.N,self.T,self.R
 
 		Dstack = self._stack_D(Xw,u_hat)
+		logger.debug("... Dstack formed, nnz: %d"%Dstack.nnz)
 		Yntrflat = array([ (Y-b_hat).transpose([2,1,0]).flatten()]).T
 		Yspams = asfortranarray(Yntrflat)
 		Xspams = Dstack.tocsc()
 		wr0 = asfortranarray(zeros((Xspams.shape[1],Yspams.shape[1])))
-		
 		wr,_ = self.w_spams.call(Xspams,Yspams,wr0)	
 		w_hat = wr.reshape([R,T,W])
 
@@ -223,8 +240,8 @@ def prep_uspams(**otherargs):
 	}
 	spamsParams = dict(spamsParams.items() + otherargs.items())
 	return FistaFlat(**spamsParams)
-def prep_wspams(U,W,T,R, **otherargs):
-	logger.debug("Preparing the graph regulariser")
+
+def prep_w_graphbit(U,W,T,R):
 	# set up the group regul
 	wrindex = arange(R*T*W).reshape([R,T,W])
 	ngroups = W * (T + R)
@@ -250,12 +267,17 @@ def prep_wspams(U,W,T,R, **otherargs):
 	logger.debug("Done creating group_var")
 	groups_var = ssp.csc_matrix(groups_var,dtype=np.bool)
 	graph = {'eta_g': eta_g,'groups' : groups,'groups_var' : groups_var}
+	return graph, allgs
+
+def prep_wspams(U,W,T,R, graphbit=None, **otherargs):
+	logger.debug("Preparing the graph regulariser")
 	graphparams = {
 		"loss":"square",
 		"regul":"graph",
 		'lambda1' : 0.5,
-		'verbose' : False
+		'verbose' : False, "missing": False
 	}
+	if not graphbit: graphbit = prep_w_graphbit(U,W,T,R)
+	graph,allgs = graphbit
 	graphparams = dict(graphparams.items() + otherargs.items())
-
 	return FistaGraph(graph,allgs,**graphparams)
