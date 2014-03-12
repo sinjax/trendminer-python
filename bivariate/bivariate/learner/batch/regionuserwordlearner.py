@@ -94,14 +94,15 @@ class SparseRUWLearner(object):
 			logger.debug("Starting epoch: %d"%epoch)
 			# phase 1: learn u & b given fixed w
 			logger.debug("... Epoch Start Error: %s"%error())
-			###### UPDATE W ###########
-			w_hat = self._learnW(Y,Xw,u_hat,w_hat,b_hat)
-			logger.debug("... w sparcity: %2.2f"%(float(sum((w_hat == 0)))/w_hat.size))
-			logger.debug("... Error after word: %s"%error())
 			###### UPDATE U ###########
 			u_hat,b_hat = self._learnU(Y,Xu,u_hat,w_hat,b_hat)
 			logger.debug("... u sparcity: %2.2f"%(float(sum((u_hat == 0)))/u_hat.size))
 			logger.debug("... Error after user: %s"%error())
+			###### UPDATE W ###########
+			w_hat = self._learnW(Y,Xw,u_hat,w_hat,b_hat)
+			logger.debug("... w sparcity: %2.2f"%(float(sum((w_hat == 0)))/w_hat.size))
+			logger.debug("... Error after word: %s"%error())
+			
 
 			if tol(u_hat,old_u_hat) and tol(w_hat,old_w_hat):
 				logger.debug("No change in previous epoch in either w or u, ending early")

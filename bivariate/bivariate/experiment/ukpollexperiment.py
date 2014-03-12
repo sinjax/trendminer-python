@@ -39,8 +39,8 @@ else:
 	if options.w_spams_file:
 		pickle.dump(w_spams_graphbit,file(options.w_spams_file,"wb"))
 
-w_spams = prep_wspams(U,W,T,R,graphbit=w_spams_graphbit,lambda1=0.0001)
-u_spams = prep_uspams(lambda1=0.05)
+w_spams = prep_wspams(U,W,T,R,graphbit=w_spams_graphbit,lambda1=0.001)
+u_spams = prep_uspams(lambda1=0.01)
 
 w_spams.params['numThreads'] = int(options.nthreads)
 u_spams.params['numThreads'] = int(options.nthreads)
