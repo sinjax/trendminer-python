@@ -18,6 +18,8 @@ parser.add_option("-d", "--ndays", dest="ndays", default=235,
                   help="Number of days")
 parser.add_option("-w", "--w-spams", dest="w_spams_file", default=None, metavar="FILE",
                   help="Number of days")
+parser.add_option("-n", "--nthreads", dest="nthreads", default=-1,
+                  help="Number of spams threads")
 (options, args) = parser.parse_args()
 experiments = prepare_folds(options.ndays,options.nfolds)
 dataCache = {}
@@ -37,8 +39,11 @@ else:
 	if options.w_spams_file:
 		pickle.dump(w_spams_graphbit,file(options.w_spams_file,"wb"))
 
-w_spams = prep_wspams(U,W,T,R,graphbit=w_spams_graphbit,lambda1=0.001)
+w_spams = prep_wspams(U,W,T,R,graphbit=w_spams_graphbit,lambda1=0.0001)
 u_spams = prep_uspams(lambda1=0.05)
+
+w_spams.params['numThreads'] = int(options.nthreads)
+u_spams.params['numThreads'] = int(options.nthreads)
 learner = SparseRUWLearner(u_spams,w_spams)
 
 for fold in experiments:

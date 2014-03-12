@@ -51,7 +51,7 @@ class SparseRUWLearner(object):
 		self.params = {
 			"epochs": 10,
 			"intercept": True,
-			"bilinear_tolerance": 0.00001
+			"bilinear_tolerance": 0.0001
 		}
 		for x,y in params.items(): self.params[x] = y
 		self.u_spams = u_spams
@@ -93,25 +93,25 @@ class SparseRUWLearner(object):
 		for epoch in range(self.params["epochs"]):
 			logger.debug("Starting epoch: %d"%epoch)
 			# phase 1: learn u & b given fixed w
-			logger.debug("... error epoch start: %s"%error())
-			# logger.debug("Error before user: %s"%error())
-			u_hat,b_hat = self._learnU(Y,Xu,u_hat,w_hat,b_hat)
-				
-			logger.debug("... u sparcity: %2.2f"%float(sum((u_hat == 0))/u_hat.size))
-			
-			# logger.debug("Error after user: %s"%error())
+			logger.debug("... Epoch Start Error: %s"%error())
+			###### UPDATE W ###########
 			w_hat = self._learnW(Y,Xw,u_hat,w_hat,b_hat)
-			logger.debug("... w sparcity: %2.2f"%float(sum((w_hat == 0))/w_hat.size))
+			logger.debug("... w sparcity: %2.2f"%(float(sum((w_hat == 0)))/w_hat.size))
+			logger.debug("... Error after word: %s"%error())
+			###### UPDATE U ###########
+			u_hat,b_hat = self._learnU(Y,Xu,u_hat,w_hat,b_hat)
+			logger.debug("... u sparcity: %2.2f"%(float(sum((u_hat == 0)))/u_hat.size))
+			logger.debug("... Error after user: %s"%error())
+
 			if tol(u_hat,old_u_hat) and tol(w_hat,old_w_hat):
 				logger.debug("No change in previous epoch in either w or u, ending early")
 				break
 			old_w_hat = w_hat
 			old_u_hat = u_hat
-			# logger.debug("Error after word: %s"%error())
 
 		return u_hat,w_hat,b_hat
 	def _calculate_error(self,Y,Xw,u_hat,w_hat,b_hat):
-		logger.debug("Calculating error...")
+		# logger.debug("Calculating error...")
 		Dstack = self._stack_D(Xw,u_hat)
 		Yntrflat = array([ Y.transpose([2,1,0]).flatten()]).T
 		flatw = array([w_hat.flatten()]).T
@@ -127,14 +127,14 @@ class SparseRUWLearner(object):
 		# uerr_regul = sum([self.u_spams._regul_error(u_hat[x,:,:]) for x in range(u_hat.shape[0]) ])
 		uerr_regul = 0
 		werr = self.w_spams.error(Yest,Yntrflat,flatw)
-		logger.debug("w_err: %2.2f"%werr)
-		logger.debug("u_err regul: %2.2f"%uerr_regul)
+		# logger.debug("w_err: %2.2f"%werr)
+		# logger.debug("u_err regul: %2.2f"%uerr_regul)
 		err =  werr + uerr_regul
-		logger.debug("Done calculating error...")
+		# logger.debug("Done calculating error...")
 		return err
 
 	def _stack_V(self,Xu,w_hat):
-		logger.debug("Creating V matrix...")
+		# logger.debug("Creating V matrix...")
 		start_time = round(time.time() * 1000)
 		U,W,N,T,R = self.U,self.W,self.N,self.T,self.R
 		V = [
@@ -148,7 +148,7 @@ class SparseRUWLearner(object):
 			for r in range(R)
 		]
 		end_time = round(time.time() * 1000)
-		logger.debug("Done dot product, tool=%d ..."%(end_time-start_time))
+		# logger.debug("Done dot product, tool=%d ..."%(end_time-start_time))
 		start_time = round(time.time() * 1000)
 		V = [
 			ssp.vstack([
@@ -161,7 +161,7 @@ class SparseRUWLearner(object):
 			for r in range(R)
 		]
 		end_time = round(time.time() * 1000)
-		logger.debug("Done creating V matrix, tool=%d ..."%(end_time-start_time))
+		# logger.debug("Done creating V matrix, tool=%d ..."%(end_time-start_time))
 		return V
 
 	def _learnU(self,Y,Xu,u_hat,w_hat,b_hat):
@@ -196,7 +196,7 @@ class SparseRUWLearner(object):
 
 		i = 0;
 		NW = N * W
-		logger.debug("Calling _stack_D")
+		# logger.debug("Calling _stack_D")
 		for r in range(R):
 			# I expect this to be (N * W) * U
 			Xwr = Xw[r*NW:(r+1)*NW,:]
@@ -213,15 +213,15 @@ class SparseRUWLearner(object):
 					Dstack.rows[DSn] = sub.rows[0]
 					Dstack.data[DSn] = sub.data[0]
 				i+=1 
-		logger.debug("Done")
+		# logger.debug("Done")
 		return Dstack
 
 	def _learnW(self,Y,Xw,u_hat,w_hat,b_hat):
-		logger.debug("Learning W")
+		# logger.debug("Learning W")
 		U,W,N,T,R = self.U,self.W,self.N,self.T,self.R
 
 		Dstack = self._stack_D(Xw,u_hat)
-		logger.debug("... Dstack formed, nnz: %d"%Dstack.nnz)
+		# logger.debug("... Dstack formed, nnz: %d"%Dstack.nnz)
 		Yntrflat = array([ (Y-b_hat).transpose([2,1,0]).flatten()]).T
 		Yspams = asfortranarray(Yntrflat)
 		Xspams = Dstack.tocsc()
