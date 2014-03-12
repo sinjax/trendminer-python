@@ -11,3 +11,4 @@ setup(
 	install_requires=["numpy","scipy","ipython","h5py"],
 	test_suite="bivariate.test",
 )
+

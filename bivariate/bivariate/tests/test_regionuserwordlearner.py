@@ -5,6 +5,7 @@ from IPython import embed
 import time
 from ..learner.batch.regionuserwordlearner import SparseRUWLearner as SRUWLearner
 from ..learner.batch.regionuserwordlearner import prep_uspams, prep_wspams
+from bivariate import sparse_bias_region_graph_bilinear_model as testcode
 
 def test_random():
 	np.random.seed(1)
@@ -14,7 +15,7 @@ def test_random():
 	T = 5   # tasks aka number of outputs for each region
 	U = 7   # number of users per region, assumed constant and disjoint
 	W = 11   # words in vocabulary
-	N = 510  # training examples for each region & task
+	N = 13  # training examples for each region & task
 
 	# the weights we aim to learn
 	u = np.random.random((R, T, U))
@@ -45,6 +46,8 @@ def test_random():
 				uXw_c,
 				axis1=1,axis2=3)
 			,axis1=0,axis2=2) + b
+	# add some noise to make things more fun
+	Y += np.random.random(Y.shape)
 	# This is X optimised for U optimisation (i.e. W multiplication)
 	Xu = ssp.csc_matrix(X.transpose([1,0,2,3]).reshape([R * N * U, W]))
 	# Xu now has rows which contain users for each day for each region in that ORDER
@@ -55,10 +58,51 @@ def test_random():
 	# Xw now has rows which contain words for each day for each region in that ORDER
 	# so the rows of Xw are all the words for a day, then all the days for a region
 
+	w_spams = prep_wspams(U,W,T,R,lambda1=0.5)
+	u_spams = prep_uspams(lambda1=0.5)
 
-	w_spams = prep_wspams(U,W,T,R)
-	learner = SRUWLearner(prep_uspams(), w_spams, intercept=True)
+
+	learner = SRUWLearner(u_spams, w_spams, intercept=True, epoch_callback=check_epoch)
 	learner.learn(Xu,Xw,Y)
 
+def deepeq(a,b):
+	try:
+		print type(a)
+		if type(a) is ndarray:
+			ac = np.copy(a)
+			bc = np.copy(b)
+			nana = isnan(a)
+			ac[nana] = 0
+			bc[nana] = 0
+			return abs(ac - bc).sum() == 0
+		elif ssp.issparse(a):
+			return abs(a - b).sum() == 0
+		elif type(a) is set:
+			return deepeq(list(a),list(b))
+		elif type(a) is list:
+			if not len(a) == len(b): return False
+			for x in range(len(a)):
+				if not deepeq(a[x],b[x]):
+					return False
+		elif type(a) is dict:
+			if not deepeq(a.keys(),b.keys()): return False
+			if not deepeq(a.values(),b.values()): return False
+		else:
+			return a == b
+	except Exception, e:
+		return False
+	return True
+	
+def check_epoch(epoch):
+	test_epoch = testcode.epochout[epoch['epoch']]
+	for x in epoch['key_order']:
+		v = epoch[x]
+		vt = test_epoch[x]
+		if not deepeq(v, vt):
+			print "for key: %s"%x
+			print "testcode says: %s"%type(vt)
+			print "module says: %s"%type(v)
+			print "Exiting..."
+			embed()
 if __name__ == '__main__':
 	test_random()

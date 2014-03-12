@@ -35,10 +35,10 @@ class SpamsFunctions(object):
 	def _regul_error(self,w):
 		raise Exception("Regul Error is undefined")
 	def _error(self,Yest,Y):
-		return norm(Yest - Y) 
+		return norm(Yest - Y)/2
 	def error(self,Yest,Y,w):
 		err = self._error(Yest,Y)
-		return (err*err)/2 + self._regul_error(w)
+		return err + self._regul_error(w)
 	def initw(self,x,y,w0):
 		if w0 is None:
 			w0 = self.init_strat(x,y)

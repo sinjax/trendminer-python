@@ -1,6 +1,7 @@
 from pylab import *
 import spams
 
+
 # The RGB model, mocked up on synthetic data
 
 R = 6   # regions

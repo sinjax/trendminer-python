@@ -1,4 +1,5 @@
 import spams
+import sys
 import logging;logger = logging.getLogger("root")
 from pylab import *
 import scipy.sparse as ssp
@@ -7,7 +8,8 @@ from IPython import embed
 from ...tools.utils import reshapeflat, reshapecoo
 from ...learner.spamsfunc import *
 
-
+def nullcallback(epoch):
+	pass
 class SparseRUWLearner(object):
 	"""
 	A region user word learner learns form the loss function:
@@ -46,21 +48,38 @@ class SparseRUWLearner(object):
 
 
 	"""
+
 	def __init__(self,u_spams,w_spams,**params):
 		super(SparseRUWLearner, self).__init__()
 		self.params = {
 			"epochs": 10,
 			"intercept": True,
-			"bilinear_tolerance": 0.0001
+			"bilinear_tolerance": 0.0001,
+			"epoch_callback": nullcallback
 		}
 		for x,y in params.items(): self.params[x] = y
 		self.u_spams = u_spams
 		self.w_spams = w_spams
+		
+		self.epoch_dict = None
 
 		if self.params["intercept"]:
 			u_spams.params["intercept"] = True
 			w_spams.params["intercept"] = False
 
+	def _reset_epoch(self,epoch,Xu,Xw,Y):
+		self.epoch_dict = {}; 
+		self.epoch_dict["epoch"] = epoch;
+		self.epoch_dict["key_order"] = [];
+		self._ed("Xu",Xu);
+		self._ed("Xw",Xw);
+		self._ed("Y",Y);
+
+	def _ed(self,k,v):
+		if self.params['epoch_callback'] is nullcallback: return v
+		if not k in self.epoch_dict['key_order']: self.epoch_dict['key_order']+=[k]
+		self.epoch_dict[k] = v
+		return v
 
 	def learn(self,Xu,Xw,Y):
 		"""
@@ -90,18 +109,26 @@ class SparseRUWLearner(object):
 
 		error = lambda: self._calculate_error(Y,Xw,u_hat,w_hat,b_hat)
 		tol = lambda a,b:norm(a.flatten() - b.flatten(),2) < self.params['bilinear_tolerance']
+		sparcity = lambda a: (float(sum((a == 0)))/a.size)
+		e=sys.float_info.max
 		for epoch in range(self.params["epochs"]):
-			logger.debug("Starting epoch: %d"%epoch)
+			self._reset_epoch(epoch,Xu,Xw,Y)
 			# phase 1: learn u & b given fixed w
-			logger.debug("... Epoch Start Error: %s"%error())
+			
+			self._ed("error_before",e)
+			logger.debug("... Epoch Start Error: %s"%e)
 			###### UPDATE U ###########
 			u_hat,b_hat = self._learnU(Y,Xu,u_hat,w_hat,b_hat)
-			logger.debug("... u sparcity: %2.2f"%(float(sum((u_hat == 0)))/u_hat.size))
-			logger.debug("... Error after user: %s"%error())
+			logger.debug("... u sparcity: %2.2f"%sparcity(u_hat))
+			e=error()
+			self._ed("error_after_user",e)
+			logger.debug("... Error after user: %s"%e)
 			###### UPDATE W ###########
 			w_hat = self._learnW(Y,Xw,u_hat,w_hat,b_hat)
-			logger.debug("... w sparcity: %2.2f"%(float(sum((w_hat == 0)))/w_hat.size))
-			logger.debug("... Error after word: %s"%error())
+			logger.debug("... w sparcity: %2.2f"%sparcity(w_hat))
+			e=error()
+			self._ed("error_after_word",e)
+			logger.debug("... Error after word: %s"%e)
 			
 
 			if tol(u_hat,old_u_hat) and tol(w_hat,old_w_hat):
@@ -109,6 +136,7 @@ class SparseRUWLearner(object):
 				break
 			old_w_hat = w_hat
 			old_u_hat = u_hat
+			self.params['epoch_callback'](self.epoch_dict)
 
 		return u_hat,w_hat,b_hat
 	def _calculate_error(self,Y,Xw,u_hat,w_hat,b_hat):
@@ -170,7 +198,9 @@ class SparseRUWLearner(object):
 		# phase 1: learn u & b given fixed w
 		
 		V = self._stack_V(Xu,w_hat)
-		
+
+		self._ed("V",V)
+		self._ed("Vr",[])
 		for r in range(R):
 			# this is (N x U x T)
 			Yr = Y[:,:,r]
@@ -188,6 +218,14 @@ class SparseRUWLearner(object):
 			u_hat[r,:,:] = ur.T
 			if self.params["intercept"]:
 				b_hat[:,r] = ur_bias
+			epoch_res_r = {}
+			epoch_res_r['Xspams'] = Xspams
+			epoch_res_r['Yspams'] = Yspams
+			epoch_res_r['ur0'] = ur0
+			epoch_res_r['params'] = self.u_spams.params
+			epoch_res_r['ur'] = u_hat[r,:,:]
+			epoch_res_r['br'] = b_hat[:,r]
+			self.epoch_dict["Vr"] += [epoch_res_r]
 
 		return u_hat,b_hat
 
@@ -228,6 +266,12 @@ class SparseRUWLearner(object):
 		Xspams = Dstack.tocsc()
 		wr0 = asfortranarray(zeros((Xspams.shape[1],Yspams.shape[1])))
 		wr,_ = self.w_spams.call(Xspams,Yspams,wr0)	
+		Dd = self._ed("D",{})
+		Dd['params'] = self.w_spams.params
+		Dd['Xspams'] = Xspams
+		Dd['Yspams'] = Yspams
+		Dd['wr0'] = wr0
+		Dd['wr'] = wr
 		w_hat = wr.reshape([R,T,W])
 
 		return w_hat

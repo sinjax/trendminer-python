@@ -4,6 +4,7 @@ import spams
 from IPython import embed
 from tools.utils import reshapeflat, reshapecoo
 import time
+
 np.random.seed(1)
 # The RGB model, mocked up on synthetic data
 
@@ -11,7 +12,7 @@ R = 3   # regions
 T = 5   # tasks aka number of outputs for each region
 U = 7   # number of users per region, assumed constant and disjoint
 W = 11   # words in vocabulary
-N = 510  # training examples for each region & task
+N = 13  # training examples for each region & task
 
 # the weights we aim to learn
 u = np.random.random((R, T, U))
@@ -68,10 +69,10 @@ u_hat = np.ones_like(u)
 w_hat = np.ones_like(w)
 b_hat = np.ones_like(b)
 
-print "Data created"
+# print "Data created"
 
 spamsParams = {
-	# "intercept": True,
+	"intercept": True,
 	"loss":"square-missing",
 	"compute_gram":False,
 	"regul":"l1l2",
@@ -124,11 +125,17 @@ def regulGroups(weights,groups):
 # 	weights.times(weights)
 
 previousError = sys.float_info.max
+epochout = []
 # 	return tot
-for epoch in range(10):
+for epoch in range(4):
+	epoch_res = {}
+	epoch_res['Xu'] = Xu
+	epoch_res['Xw'] = Xw
+	epoch_res['Y'] = Y
+	epoch_res['error_before'] = previousError
 	# phase 1: learn u & b given fixed w
 	# Here we make V = region stacked (d x u) x t
-	print "Creating V matrix..."
+	# print "Creating V matrix..."
 	start_time = round(time.time() * 1000)
 	NL = R * U
 	V = [
@@ -142,7 +149,7 @@ for epoch in range(10):
 		for r in range(R)
 	]
 	end_time = round(time.time() * 1000)
-	print "Done dot product, tool=%d ..."%(end_time-start_time)
+	# print "Done dot product, took=%d ..."%(end_time-start_time)
 	start_time = round(time.time() * 1000)
 	
 	V = [
@@ -156,20 +163,21 @@ for epoch in range(10):
 		for r in range(R)
 	]
 	end_time = round(time.time() * 1000)
-	print "Done creating V matrix, tool=%d ..."%(end_time-start_time)
+	# print "Done creating V matrix, took=%d ..."%(end_time-start_time)
 	start_time = round(time.time() * 1000)
 	Vdense = np.diagonal(
 		np.tensordot(X,w_hat,axes=([3],[2])),
 		axis1=1, axis2=3
 	)
 	end_time = round(time.time() * 1000)
-	print "Done creating Vdense matrix, tool=%d ..."%(end_time-start_time)
+	# print "Done creating Vdense matrix, took=%d ..."%(end_time-start_time)
 	difffromdense = sum([abs(vstack([Vdense[:,:,t,r] for t in range(T)]) - V[r].todense()) for r in range(R)])
 	if(difffromdense > 0.0000001): 
-		print "The V stack is WRONG"
+		# print "The V stack is WRONG"
 		sys.exit()
-	
 	# embed()
+	epoch_res["Vr"] = []
+	epoch_res["V"] = V
 	spamsParams['loss'] = "square-missing"
 	for r in range(R):
 		# this is (N x U x T)
@@ -188,6 +196,8 @@ for epoch in range(10):
 		)
 		ur0 = asfortranarray(zeros((Xspams.shape[1],Yspams.shape[1])))
 		# ur0 = ssp.csr_matrix((Xspams.shape[1],Yspams.shape[1]))
+		
+		
 		ur = spams.fistaFlat(
 			Yspams,
 			Xspams,
@@ -196,6 +206,14 @@ for epoch in range(10):
 		)
 		u_hat[r,:,:] = ur[:U,:].T
 		b_hat[:,r] = ur[U:U+1,:]
+		epoch_res_r = {}
+		epoch_res_r['Xspams'] = Xspams[:,:-1]
+		epoch_res_r['Yspams'] = Yspams
+		epoch_res_r['ur0'] = ur0[:-1,:]
+		epoch_res_r['params'] = spamsParams
+		epoch_res_r['ur'] = u_hat[r,:,:]
+		epoch_res_r['br'] = b_hat[:,r]
+		epoch_res["Vr"] += [epoch_res_r]
 
 		# Tracer()()
 
@@ -210,10 +228,11 @@ for epoch in range(10):
 	flatwhat = array([w_hat.transpose([0,1,2]).flatten()]).T
 	regulFlatwhat = regulGroups(flatwhat,groups_var)
 	errorAfterUser = norm(Yest + b_hat - Y)/2 + regulFlatwhat * graphparams['lambda1']
-	
-	print "(1) User Opt Error: ",errorAfterUser
+	epoch_res['error_after_user'] = errorAfterUser
+	# print "(1) User Opt Error: ",errorAfterUser
 	if previousError < errorAfterUser:
-		print "THERE WAS A RISE IN ERROR AFTER OPTIMISING WORDS" 
+		print "The error must never rise"
+		# print "THERE WAS A RISE IN ERROR AFTER OPTIMISING WORDS" 
 	previousError = errorAfterUser
 
 	# Dstack = zeros((N*R*T,W*R*T))
@@ -251,10 +270,28 @@ for epoch in range(10):
 	
 	wr = spams.fistaGraph(
 		Yspams, Xspams, wr0, graph,False,**graphparams
-	)	
+	)
+	epoch_res["D"] = {}
+	epoch_res["D"]['params'] = graphparams
+	epoch_res["D"]['Xspams'] = Xspams
+	epoch_res["D"]['Yspams'] = Yspams
+	epoch_res["D"]['wr0'] = wr0
+	epoch_res["D"]['wr'] = wr
 	w_hat = wr.reshape([R,T,W])
 	Yest = diagonal(diagonal(w_hat.dot(D),axis1=1,axis2=2),axis1=0,axis2=2)
-	
+
+	D = np.diagonal(np.tensordot(u_hat, X, axes=([2],[2])), axis1=3, axis2=0)
+	Yest = diagonal(
+		diagonal(
+			w_hat.dot(D),axis1=1,axis2=2
+		),axis1=0,axis2=2
+	)
+	flatwhat = array([w_hat.transpose([0,1,2]).flatten()]).T
+	regulFlatwhat = regulGroups(flatwhat,groups_var)
+	errorAfterWord = norm(Yest + b_hat - Y)/2 + regulFlatwhat * graphparams['lambda1']
+	epoch_res['error_after_word'] = errorAfterWord
+
+	epochout += [epoch_res]
 	# Vprime is T x N x W x R
 	# now solve for w_hat[:,:,:] and b_hat[:,:]
 	# using spams with 
