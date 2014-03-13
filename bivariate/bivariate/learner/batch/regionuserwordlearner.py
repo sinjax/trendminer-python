@@ -280,6 +280,7 @@ class SparseRUWLearner(object):
 		# Dd['wr0'] = wr0
 		# Dd['wr'] = wr
 		w_hat = wr.reshape([R,T,W])
+		self._ed("w_hat",dc(w_hat))
 
 		return w_hat
 
