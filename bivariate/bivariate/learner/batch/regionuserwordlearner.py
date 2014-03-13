@@ -122,18 +122,18 @@ class SparseRUWLearner(object):
 			self._ed("b_hat_before",dc(b_hat))
 			self._ed("error_before",e)
 			logger.debug("... Epoch Start Error: %s"%e)
-			###### UPDATE U ###########
-			u_hat,b_hat = self._learnU(Y,Xu,u_hat,w_hat,b_hat)
-			logger.debug("... u sparcity: %2.2f"%sparcity(u_hat))
-			e=error()
-			self._ed("error_after_user",e)
-			logger.debug("... Error after user: %s"%e)
 			###### UPDATE W ###########
 			w_hat = self._learnW(Y,Xw,u_hat,w_hat,b_hat)
 			logger.debug("... w sparcity: %2.2f"%sparcity(w_hat))
 			e=error()
 			self._ed("error_after_word",e)
 			logger.debug("... Error after word: %s"%e)
+			###### UPDATE U ###########
+			u_hat,b_hat = self._learnU(Y,Xu,u_hat,w_hat,b_hat)
+			logger.debug("... u sparcity: %2.2f"%sparcity(u_hat))
+			e=error()
+			self._ed("error_after_user",e)
+			logger.debug("... Error after user: %s"%e)
 			
 
 			if tol(u_hat,old_u_hat) and tol(w_hat,old_w_hat):
