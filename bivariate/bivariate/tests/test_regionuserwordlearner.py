@@ -5,7 +5,7 @@ from IPython import embed
 import time
 from ..learner.batch.regionuserwordlearner import SparseRUWLearner as SRUWLearner
 from ..learner.batch.regionuserwordlearner import prep_uspams, prep_wspams
-from bivariate import sparse_bias_region_graph_bilinear_model as testcode
+# from bivariate import sparse_bias_region_graph_bilinear_model as testcode
 
 def test_random():
 	np.random.seed(1)
@@ -58,12 +58,12 @@ def test_random():
 	# Xw now has rows which contain words for each day for each region in that ORDER
 	# so the rows of Xw are all the words for a day, then all the days for a region
 
-	w_spams = prep_wspams(U,W,T,R,lambda1=0.5)
-	u_spams = prep_uspams(lambda1=0.5)
+	w_spams = prep_wspams(U,W,T,R,lambda1=0.0005)
+	u_spams = prep_uspams(lambda1=0.0005)
 
 
 	learner = SRUWLearner(u_spams, w_spams, epochs=4,intercept=True, 
-		epoch_callback=check_epoch
+		# epoch_callback=check_epoch
 	)
 	learner.learn(Xu,Xw,Y)
 
@@ -97,6 +97,9 @@ def deepeq(a,b):
 def check_epoch(epoch):
 	test_epoch = testcode.epochout[epoch['epoch']]
 	for x in epoch['key_order']:
+		if not x in test_epoch: 
+			print "%s not found in test_epoch..."%x
+			continue
 		v = epoch[x]
 		vt = test_epoch[x]
 		
