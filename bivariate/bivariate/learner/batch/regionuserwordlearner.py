@@ -1,3 +1,4 @@
+from copy import deepcopy as dc
 import spams
 import sys
 import logging;logger = logging.getLogger("root")
@@ -71,9 +72,11 @@ class SparseRUWLearner(object):
 		self.epoch_dict = {}; 
 		self.epoch_dict["epoch"] = epoch;
 		self.epoch_dict["key_order"] = [];
-		self._ed("Xu",Xu);
-		self._ed("Xw",Xw);
-		self._ed("Y",Y);
+		self._ed("w_spams_params",self.w_spams.params);
+		self._ed("u_spams_params",self.u_spams.params);
+		# self._ed("Xu",Xu);
+		# self._ed("Xw",Xw);
+		# self._ed("Y",Y);
 
 	def _ed(self,k,v):
 		if self.params['epoch_callback'] is nullcallback: return v
@@ -114,7 +117,9 @@ class SparseRUWLearner(object):
 		for epoch in range(self.params["epochs"]):
 			self._reset_epoch(epoch,Xu,Xw,Y)
 			# phase 1: learn u & b given fixed w
-			
+			self._ed("u_hat_before",dc(u_hat))
+			self._ed("w_hat_before",dc(w_hat))
+			self._ed("b_hat_before",dc(b_hat))
 			self._ed("error_before",e)
 			logger.debug("... Epoch Start Error: %s"%e)
 			###### UPDATE U ###########
@@ -199,8 +204,8 @@ class SparseRUWLearner(object):
 		
 		V = self._stack_V(Xu,w_hat)
 
-		self._ed("V",V)
-		self._ed("Vr",[])
+		# self._ed("V",V)
+		# vr_list = self._ed("Vr",[])
 		for r in range(R):
 			# this is (N x U x T)
 			Yr = Y[:,:,r]
@@ -218,15 +223,17 @@ class SparseRUWLearner(object):
 			u_hat[r,:,:] = ur.T
 			if self.params["intercept"]:
 				b_hat[:,r] = ur_bias
-			epoch_res_r = {}
-			epoch_res_r['Xspams'] = Xspams
-			epoch_res_r['Yspams'] = Yspams
-			epoch_res_r['ur0'] = ur0
-			epoch_res_r['params'] = self.u_spams.params
-			epoch_res_r['ur'] = u_hat[r,:,:]
-			epoch_res_r['br'] = b_hat[:,r]
-			self.epoch_dict["Vr"] += [epoch_res_r]
-
+			# epoch_res_r = {}
+			# vr_list += [epoch_res_r]
+			# epoch_res_r['Xspams'] = dc(Xspams)
+			# epoch_res_r['Yspams'] = dc(Yspams)
+			# epoch_res_r['ur0'] = dc(ur0)
+			# epoch_res_r['params'] = dc(self.u_spams.params)
+			# epoch_res_r['ur'] = dc(u_hat[r,:,:])
+			# epoch_res_r['br'] = dc(b_hat[:,r])
+			
+		self._ed("u_hat",dc(u_hat))
+		self._ed("b_hat",dc(b_hat))
 		return u_hat,b_hat
 
 	def _stack_D(self,Xw,u_hat):
@@ -249,7 +256,7 @@ class SparseRUWLearner(object):
 					# Dstack.rows[DSn] = range(DSw,DSw + W)
 					# Dstack.data[DSn] = Xwrt[n*W:n*W + W]
 					sub = ssp.lil_matrix(Xwrt[:,n*W:n*W + W])
-					Dstack.rows[DSn] = sub.rows[0]
+					Dstack.rows[DSn] = [x + DSw for x in sub.rows[0]]
 					Dstack.data[DSn] = sub.data[0]
 				i+=1 
 		# logger.debug("Done")
@@ -266,12 +273,12 @@ class SparseRUWLearner(object):
 		Xspams = Dstack.tocsc()
 		wr0 = asfortranarray(zeros((Xspams.shape[1],Yspams.shape[1])))
 		wr,_ = self.w_spams.call(Xspams,Yspams,wr0)	
-		Dd = self._ed("D",{})
-		Dd['params'] = self.w_spams.params
-		Dd['Xspams'] = Xspams
-		Dd['Yspams'] = Yspams
-		Dd['wr0'] = wr0
-		Dd['wr'] = wr
+		# Dd = self._ed("D",{})
+		# Dd['params'] = self.w_spams.params
+		# Dd['Xspams'] = Xspams
+		# Dd['Yspams'] = Yspams
+		# Dd['wr0'] = wr0
+		# Dd['wr'] = wr
 		w_hat = wr.reshape([R,T,W])
 
 		return w_hat

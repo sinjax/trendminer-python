@@ -15,7 +15,7 @@ def test_random():
 	T = 5   # tasks aka number of outputs for each region
 	U = 7   # number of users per region, assumed constant and disjoint
 	W = 11   # words in vocabulary
-	N = 13  # training examples for each region & task
+	N = 501  # training examples for each region & task
 
 	# the weights we aim to learn
 	u = np.random.random((R, T, U))
@@ -62,12 +62,13 @@ def test_random():
 	u_spams = prep_uspams(lambda1=0.5)
 
 
-	learner = SRUWLearner(u_spams, w_spams, intercept=True, epoch_callback=check_epoch)
+	learner = SRUWLearner(u_spams, w_spams, epochs=4,intercept=True, 
+		epoch_callback=check_epoch
+	)
 	learner.learn(Xu,Xw,Y)
 
 def deepeq(a,b):
 	try:
-		print type(a)
 		if type(a) is ndarray:
 			ac = np.copy(a)
 			bc = np.copy(b)
@@ -77,16 +78,16 @@ def deepeq(a,b):
 			return abs(ac - bc).sum() == 0
 		elif ssp.issparse(a):
 			return abs(a - b).sum() == 0
-		elif type(a) is set:
-			return deepeq(list(a),list(b))
 		elif type(a) is list:
 			if not len(a) == len(b): return False
 			for x in range(len(a)):
 				if not deepeq(a[x],b[x]):
 					return False
 		elif type(a) is dict:
-			if not deepeq(a.keys(),b.keys()): return False
-			if not deepeq(a.values(),b.values()): return False
+			if not deepeq(set(a.keys()),set(b.keys())): return False
+			for x,v in a.items():
+				if not deepeq(v,b[x]):
+					return False
 		else:
 			return a == b
 	except Exception, e:
@@ -98,6 +99,7 @@ def check_epoch(epoch):
 	for x in epoch['key_order']:
 		v = epoch[x]
 		vt = test_epoch[x]
+		
 		if not deepeq(v, vt):
 			print "for key: %s"%x
 			print "testcode says: %s"%type(vt)

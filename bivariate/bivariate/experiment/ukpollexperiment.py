@@ -20,6 +20,10 @@ parser.add_option("-w", "--w-spams", dest="w_spams_file", default=None, metavar=
                   help="Number of days")
 parser.add_option("-n", "--nthreads", dest="nthreads", default=-1,
                   help="Number of spams threads")
+parser.add_option("--u-lambda", dest="u_lambda", default=0.001,
+                  help="The lambda given to the user regulariser")
+parser.add_option("--w-lambda", dest="w_lambda", default=0.0001,
+                  help="The lambda given to the word regulariser")
 (options, args) = parser.parse_args()
 experiments = prepare_folds(options.ndays,options.nfolds)
 dataCache = {}
@@ -39,8 +43,8 @@ else:
 	if options.w_spams_file:
 		pickle.dump(w_spams_graphbit,file(options.w_spams_file,"wb"))
 
-w_spams = prep_wspams(U,W,T,R,graphbit=w_spams_graphbit,lambda1=0.001)
-u_spams = prep_uspams(lambda1=0.01)
+w_spams = prep_wspams(U,W,T,R,graphbit=w_spams_graphbit,lambda1=float(options.w_lambda))
+u_spams = prep_uspams(lambda1=float(options.u_lambda))
 
 w_spams.params['numThreads'] = int(options.nthreads)
 u_spams.params['numThreads'] = int(options.nthreads)
