@@ -11,32 +11,44 @@ def for_days(userword,worduser,*days):
 	embed()
 
 def read_split_userwordregion(inp,*days,**xargs):
-	cache = None
-	if "cache" in xargs: 
-		cache = xargs["cache"]
-	if not os.path.exists(inp):
-		raise Exception("Input does not exist")
+	cache = None; vkeep = None
+	if "cache" in xargs:  cache = xargs["cache"]
+	if not os.path.exists(inp): raise Exception("Input does not exist")
+	if "voc_keep" in xargs: vkeep = xargs['voc_keep']
+
 	R = len(os.listdir(inp))
 	allmats = {}
+	allmats["worduser"] = []
+	allmats["userword"] = []
 	for r in range(R):
 		rdir = os.sep.join([inp,"r%d"%r])
 		for n in days:
+			cache_name = "r%dn%d"%(r,n)
 			if cache is not None:
-				if "r%dn%d"%(r,n) in cache:
-					for k,mat in cache["r%dn%d"%(r,n)].items():
-						if not k in allmats: allmats[k] = []
+				if cache_name in cache:
+					for k,mat in cache[cache_name].items():
 						allmats[k] += [mat]
 					continue
 				else:
-					cache["r%dn%d"%(r,n)] = dict()
+					cache[cache_name] = dict()
 			toload = os.sep.join([rdir,"n%d.mat"%n])
 			mats = sio.loadmat(toload)
-			for k,mat in mats.items():
-				if not ssp.issparse(mat): continue
-				if not k in allmats: allmats[k] = []
-				allmats[k] += [mat]
-				if cache is not None:
-					cache["r%dn%d"%(r,n)][k] = mat
+			wu = mats['worduser']
+			uw = mats['userword']
+			if vkeep is not None:
+				wu = mats['worduser'][vkeep,:]
+				uw = mats['userword'][:,vkeep]
+			if cache is not None:
+				cache[cache_name]["worduser"] = wu
+				cache[cache_name]["userword"] = uw
+
+			allmats['worduser'] += [wu]
+			allmats['userword'] += [uw]
+			if(len(allmats['worduser']) > 1):
+				if not allmats['worduser'][-1].shape[0] == allmats['worduser'][-2].shape[0]:
+					logger.debug("Incompatible matrix sizes due to different vocabulary size")
+					raise Exception("Incompatible matrix sizes due to different vocabulary size")
+	
 	logger.debug("Stacking word/users")
 	rdworduser = ssp.vstack(allmats['worduser'],format="csr")
 	logger.debug("Stacking user/words")
