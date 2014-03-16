@@ -74,6 +74,13 @@ class SparseRUWLearner(object):
 		self.epoch_dict["key_order"] = [];
 		self._ed("w_spams_params",self.w_spams.params);
 		self._ed("u_spams_params",self.u_spams.params);
+		self._ed("U",self.U);
+		self._ed("W",self.W);
+		self._ed("N",self.N);
+		self._ed("T",self.T);
+		self._ed("R",self.R);
+
+
 		# self._ed("Xu",Xu);
 		# self._ed("Xw",Xw);
 		# self._ed("Y",Y);
@@ -285,6 +292,27 @@ class SparseRUWLearner(object):
 		self._ed("w_hat",dc(w_hat))
 
 		return w_hat
+def print_epoch_words(epoch,voc,n=20):
+	w = epoch["w_hat"]
+	
+	for r in range(epoch['R']):
+		for t in range(epoch['T']):
+			sortedrtw = np.argsort(w[r,t,:])
+			nonzero_rtw = sortedrtw[w[r,t,sortedrtw] != 0]
+
+			pos_words = voc[nonzero_rtw[-n:]][:,0]
+			pos_score = w[r,t,nonzero_rtw[-n:]]
+			pos_minscore = pos_score.min()
+			pos_maxscore = pos_score.max()
+			pos_word_str = ",".join([x[0] for x in pos_words])
+			logger.debug("Pos: R%d,T%d: (%2.5f->%2.5f) %s"%(r,t,pos_minscore,pos_maxscore,pos_word_str))
+
+			neg_words = voc[nonzero_rtw[:n]][:,0]
+			neg_score = w[r,t,nonzero_rtw[:n]]
+			neg_minscore = neg_score.min()
+			neg_maxscore = neg_score.max()
+			neg_word_str = ",".join([x[0] for x in neg_words])
+			logger.debug("Neg: R%d,T%d: (%2.5f->%2.5f) %s"%(r,t,neg_minscore,neg_maxscore,neg_word_str))
 
 def prep_uspams(**otherargs):
 	spamsParams = {
@@ -296,7 +324,7 @@ def prep_uspams(**otherargs):
 	spamsParams = dict(spamsParams.items() + otherargs.items())
 	return FistaFlat(**spamsParams)
 
-def prep_w_graphbit(U,W,T,R):
+def prep_w_graphbit(W,T,R):
 	# set up the group regul
 	wrindex = arange(R*T*W).reshape([R,T,W])
 	ngroups = W * (T + R)
@@ -309,12 +337,13 @@ def prep_w_graphbit(U,W,T,R):
 	i = 0
 	logger.debug("Creating the sausage groups")
 	allgs = []
-	for word in range(W):
-		for r in range(R):
-			allgs += [wrindex[r,:,word]]
+	for r in range(R):
+		for word in range(W):
 			groups_var[wrindex[r,:,word],i] = 1
+			allgs += [wrindex[r,:,word]]
 			i+=1
-		for t in range(T):
+	for t in range(T):
+		for word in range(W):
 			groups_var[wrindex[:,t,word],i] = 1
 			allgs += [wrindex[:,t,word]]
 			i+=1
@@ -324,7 +353,7 @@ def prep_w_graphbit(U,W,T,R):
 	graph = {'eta_g': eta_g,'groups' : groups,'groups_var' : groups_var}
 	return graph, allgs
 
-def prep_wspams(U,W,T,R, graphbit=None, **otherargs):
+def prep_wspams(W,T,R, graphbit=None, **otherargs):
 	logger.debug("Preparing the graph regulariser")
 	graphparams = {
 		"loss":"square",
@@ -332,7 +361,7 @@ def prep_wspams(U,W,T,R, graphbit=None, **otherargs):
 		'lambda1' : 0.5,
 		'verbose' : False, "missing": False
 	}
-	if not graphbit: graphbit = prep_w_graphbit(U,W,T,R)
+	if not graphbit: graphbit = prep_w_graphbit(W,T,R)
 	graph,allgs = graphbit
 	graphparams = dict(graphparams.items() + otherargs.items())
 	return FistaGraph(graph,allgs,**graphparams)
