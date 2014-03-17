@@ -88,7 +88,7 @@ class FistaFlat(SpamsFunctions):
 	def __str__(self):
 		return "<fistaFlat loss=%s,regul=%s>"%(self.params["loss"],self.params["regul"])
 	def _regul_error(self,w):
-		return norm(w,2,axis=1).sum() * self.params['lambda1']
+		return array([norm(w[x,:],2) for x in range(w.shape[0])]).sum() * self.params['lambda1']
 
 class FistaGraph(SpamsFunctions):
 	"""docstring for FistaGraph"""
