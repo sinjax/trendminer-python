@@ -50,10 +50,11 @@ parser.add_option("--word-group-limit", dest="word_group_limit", default=None,
 
 voc_keep = None
 voc = None
-if options.vocabulary_keep:
-	voc_keep = sio.loadmat(options.vocabulary_keep)[options.vocabulary_keep_key][0,:] - 1
-if options.vocabulary:
-	voc = sio.loadmat(options.vocabulary_keep)[options.voc_key]
+if options.vocabulary is not None and options.vocabulary_keep is None: options.vocabulary_keep = options.vocabulary
+
+if options.vocabulary_keep: voc_keep = sio.loadmat(options.vocabulary_keep)[options.vocabulary_keep_key][0,:] - 1
+if options.vocabulary: voc = sio.loadmat(options.vocabulary)[options.voc_key]
+
 # Prepare the output location and change the log file location
 
 if not os.path.exists(options.output_root): os.makedirs(options.output_root)
