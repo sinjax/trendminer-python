@@ -91,6 +91,20 @@ class SparseRUWLearner(object):
 		self.epoch_dict[k] = v
 		return v
 
+	def predict(self,Xw,u_hat,w_hat,b_hat,N):
+		"""
+		Expected input:
+			Xw - A (sparse) matrix of shape [R*N*W,U]
+			u_hat - A tensor of shape [R,T,U]
+			w_hat - A tensor of shape [R,T,W]
+			b_hat - A matrix of shape [R,T]
+			N - Number of days
+		"""
+		Dstack = stack_D(Xw, u_hat,self.W, N, self.T, self.R)
+		flatw = array([w_hat.flatten()]).T
+		Yest = Dstack.dot(flatw)
+		Yest = array([Yest.reshape([self.R,self.T,N]).transpose([2,1,0])]) + b_hat
+		return Yest
 	def learn(self,Xu,Xw,Y):
 		"""
 		Expected input: 
@@ -246,30 +260,8 @@ class SparseRUWLearner(object):
 		return u_hat,b_hat
 
 	def _stack_D(self,Xw,u_hat):
-		U,W,N,T,R = self.U,self.W,self.N,self.T,self.R
-		Dstack = ssp.lil_matrix((N*R*T,W*R*T))
-
-		i = 0;
-		NW = N * W
-		# logger.debug("Calling _stack_D")
-		for r in range(R):
-			# I expect this to be (N * W) * U
-			Xwr = Xw[r*NW:(r+1)*NW,:]
-			for t in range(T):
-				# I expect this to be (N * W) * 1
-				# Xwrt = Xwr.dot(u_hat[r,t,:])
-				Xwrt = ssp.csr_matrix(Xwr.dot(u_hat[r,t,:]))
-				for n in range(N):
-					DSn = (i * N + n)
-					DSw = (i * W )
-					# Dstack.rows[DSn] = range(DSw,DSw + W)
-					# Dstack.data[DSn] = Xwrt[n*W:n*W + W]
-					sub = ssp.lil_matrix(Xwrt[:,n*W:n*W + W])
-					Dstack.rows[DSn] = [x + DSw for x in sub.rows[0]]
-					Dstack.data[DSn] = sub.data[0]
-				i+=1 
-		# logger.debug("Done")
-		return Dstack
+		W,N,T,R = self.W,self.N,self.T,self.R
+		return stack_D(Xw,u_hat,W,N,T,R)
 
 	def _learnW(self,Y,Xw,u_hat,w_hat,b_hat):
 		# logger.debug("Learning W")
@@ -313,6 +305,32 @@ def print_epoch_words(epoch,voc,n=20):
 			neg_maxscore = neg_score.max()
 			neg_word_str = ",".join([x[0] for x in neg_words])
 			logger.debug("Neg: R%d,T%d: (%2.5f->%2.5f) %s"%(r,t,neg_minscore,neg_maxscore,neg_word_str))
+
+def stack_D(Xw,u_hat,W,N,T,R):
+	Dstack = ssp.lil_matrix((N*R*T,W*R*T))
+
+	i = 0;
+	NW = N * W
+	# logger.debug("Calling _stack_D")
+	for r in range(R):
+		# I expect this to be (N * W) * U
+		Xwr = Xw[r*NW:(r+1)*NW,:]
+		for t in range(T):
+			# I expect this to be (N * W) * 1
+			# Xwrt = Xwr.dot(u_hat[r,t,:])
+			Xwrt = ssp.csr_matrix(Xwr.dot(u_hat[r,t,:]))
+			for n in range(N):
+				DSn = (i * N + n)
+				DSw = (i * W )
+				# Dstack.rows[DSn] = range(DSw,DSw + W)
+				# Dstack.data[DSn] = Xwrt[n*W:n*W + W]
+				sub = ssp.lil_matrix(Xwrt[:,n*W:n*W + W])
+				Dstack.rows[DSn] = [x + DSw for x in sub.rows[0]]
+				Dstack.data[DSn] = sub.data[0]
+			i+=1 
+	# logger.debug("Done")
+	return Dstack
+	pass
 
 def prep_uspams(**otherargs):
 	spamsParams = {
