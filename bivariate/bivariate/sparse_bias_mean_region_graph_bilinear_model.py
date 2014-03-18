@@ -299,7 +299,7 @@ for epoch in range(4):
 	)
 	flatwhat = array([w_hat.transpose([0,1,2]).flatten()]).T
 	regulFlatwhat = regulGroups(flatwhat,groups_var)
-	errorAfterWord = norm(Yest + b_hat + Y_mean - Y)/2 + regulFlatwhat * graphparams['lambda1']
+	errorAfterWord = norm(Yest + b_hat - Y - Y_mean)/2 + regulFlatwhat * graphparams['lambda1']
 	epoch_res['error_after_word'] = errorAfterWord
 	previousError = errorAfterWord
 	epochout += [epoch_res]

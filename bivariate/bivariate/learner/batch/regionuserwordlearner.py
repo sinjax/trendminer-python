@@ -62,7 +62,7 @@ class SparseRUWLearner(object):
 		for x,y in params.items(): self.params[x] = y
 		self.u_spams = u_spams
 		self.w_spams = w_spams
-		self.force_mean_center
+		self.force_mean_center = self.params['force_mean_center']
 		
 		self.epoch_dict = None
 
@@ -134,8 +134,9 @@ class SparseRUWLearner(object):
 
 		# Prepare the Y_mean
 		Y_mean = 0
-		if self.force_mean_center: Y_mean = Y.mean(axis=0)
-
+		if self.force_mean_center:
+			Y_mean = Y.mean(axis=0)
+			logger.debug("Mean center calculated")
 		error = lambda: self._calculate_error(Y-Y_mean,Xw,u_hat,w_hat,b_hat)
 		tol = lambda a,b:norm(a.flatten() - b.flatten(),2) <= self.params['bilinear_tolerance']
 		sparcity = lambda a: (float(sum((a == 0)))/a.size)
@@ -161,6 +162,7 @@ class SparseRUWLearner(object):
 			e=error()
 			self._ed("error_after_user",e)
 			logger.debug("... Error after user: %s"%e)
+			
 			self._ed("Y_mean",Y_mean)
 			
 			if tol(u_hat,old_u_hat) and tol(w_hat,old_w_hat):

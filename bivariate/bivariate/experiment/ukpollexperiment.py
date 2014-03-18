@@ -24,22 +24,11 @@ parser.add_argument("-f", "--nfolds", dest="nfolds",default=1,type=int,
 parser.add_argument("-e", "--epochs", dest="nepochs",default=10,type=int,
                   help="Number of epochs of the bilinear model ")
 prepare_fold_args(parser)
-# parser.add_argument("--n-training", dest="ntrain",default=48,
-#                   help="Number of training instances in the first fold")
-# parser.add_argument("--n-validation", dest="nval",default=8,
-#                   help="Number of training instances in the first fold to be used as validation")
-# parser.add_argument("--n-test", dest="ntest",default=5,
-#                   help="Number of test instances and the increment per fold")
-parser.add_argument("-d", "--ndays", dest="ndays", default=235,
-                  help="Number of days")
-parser.add_argument("-w", "--w-spams", dest="w_spams_file", default=None, metavar="FILE",
-                  help="Number of days")
-parser.add_argument("-n", "--nthreads", dest="nthreads", default=-1,
-                  help="Number of spams threads")
-parser.add_argument("--u-lambda", dest="u_lambda", default=0.001,
-                  help="The lambda given to the user regulariser")
-parser.add_argument("--w-lambda", dest="w_lambda", default=0.0001,
-                  help="The lambda given to the word regulariser")
+parser.add_argument("-d", "--ndays", dest="ndays", default=235,help="Number of days")
+parser.add_argument("-w", "--w-spams", dest="w_spams_file", default=None, metavar="FILE",help="Number of days")
+parser.add_argument("-n", "--nthreads", dest="nthreads", default=-1,help="Number of spams threads")
+parser.add_argument("--u-lambda", dest="u_lambda", default=0.001,help="The lambda given to the user regulariser")
+parser.add_argument("--w-lambda", dest="w_lambda", default=0.0001,help="The lambda given to the word regulariser")
 parser.add_argument("--output", dest="output_root", default="out",
                   help="Time stamped output folder created here")
 parser.add_argument("--voc-keep", dest="vocabulary_keep", default=None,
@@ -52,9 +41,9 @@ parser.add_argument("--voc-key", dest="voc_key", default="voc_filtered",
                   help="If the voc index is provided, what key")
 parser.add_argument("--word-group-limit", dest="word_group_limit", default=None,
                   help="Arbitrarily choose the first groups to this count")
-parser.add_argument("--word-group-limit", dest="word_group_limit", default=None,
-                  	help="Arbitrarily choose the first groups to this count")
-parser.add_argument("--force-mean-center", dest="force_mean_center", default=None,
+parser.add_argument("--force-simple-word", "-fs", dest="force_simple_word", default=None,action='store_true',
+                  help="Use a simple regulariser on words, faster, good for testing")
+parser.add_argument("--force-mean-center","-fc", dest="force_mean_center", default=None, action='store_true',
                   	help="Remove the mean from the response variable")
 options = parser.parse_args()
 
@@ -121,8 +110,12 @@ if options.word_group_limit is not None:
 	]
 	w_spams_graphbit = new_w_spams_graphbit
 
-w_spams = prep_wspams(W,T,R,graphbit=w_spams_graphbit,lambda1=float(options.w_lambda))
-# w_spams = prep_uspams(lambda1=float(options.u_lambda)) # Useful for test, much faster
+
+if options.force_simple_word: 
+	w_spams = prep_uspams(lambda1=float(options.u_lambda)) # Useful for test, much faster
+else: 
+	w_spams = prep_wspams(W,T,R,graphbit=w_spams_graphbit,lambda1=float(options.w_lambda))
+
 u_spams = prep_uspams(lambda1=float(options.u_lambda))
 
 
