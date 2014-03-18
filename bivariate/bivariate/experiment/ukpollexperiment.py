@@ -52,6 +52,10 @@ parser.add_argument("--voc-key", dest="voc_key", default="voc_filtered",
                   help="If the voc index is provided, what key")
 parser.add_argument("--word-group-limit", dest="word_group_limit", default=None,
                   help="Arbitrarily choose the first groups to this count")
+parser.add_argument("--word-group-limit", dest="word_group_limit", default=None,
+                  	help="Arbitrarily choose the first groups to this count")
+parser.add_argument("--force-mean-center", dest="force_mean_center", default=None,
+                  	help="Remove the mean from the response variable")
 options = parser.parse_args()
 
 
@@ -134,15 +138,15 @@ for fold in experiments:
 		logger.debug("Saving Epoch: %s"%epoch_file)
 		if voc is not None:
 			print_epoch_words(epoch,voc)
-		epoch['Y_estimate'] = learner.predict(Xtest_wu,epoch['u_hat'],epoch['w_hat'],epoch['b_hat'],len(test))
+		epoch['Y_estimate'] = learner.predict(Xtest_wu,epoch['u_hat'],epoch['w_hat'],epoch['b_hat'] + epoch['Y_mean'],len(test))
 		epoch['Y_correct'] = Ytest
 		epoch['Y_se'] = pow(epoch['Y_correct'] - epoch['Y_estimate'],2)
 		epoch['Y_mse'] = mean(epoch['Y_se'])
 		epoch['fold'] = fold
-		logger.debug("Epoch_%d, Fold%d, mse: %2.2f"%(epoch["epoch"],fold_n,epoch['Y_mse']))
+		logger.debug("Epoch_%d, Fold_%d, mse: %2.2f"%(epoch["epoch"],fold_n,epoch['Y_mse']))
 		dump_compressed(epoch,epoch_file)
 		
-	learner = SparseRUWLearner(u_spams,w_spams, epoch_callback=save_epoch, epochs=options.nepochs)
+	learner = SparseRUWLearner(u_spams,w_spams, epoch_callback=save_epoch, epochs=options.nepochs,force_mean_center=options.force_mean_center)
 	training = fold['training']
 	test = fold['test']
 	validation = fold['validation']
