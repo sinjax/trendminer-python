@@ -56,11 +56,13 @@ class SparseRUWLearner(object):
 			"epochs": 10,
 			"intercept": True,
 			"bilinear_tolerance": 0.0001,
-			"epoch_callback": nullcallback
+			"epoch_callback": nullcallback,
+			"force_mean_center": False
 		}
 		for x,y in params.items(): self.params[x] = y
 		self.u_spams = u_spams
 		self.w_spams = w_spams
+		self.force_mean_center
 		
 		self.epoch_dict = None
 
@@ -130,11 +132,15 @@ class SparseRUWLearner(object):
 		old_u_hat = u_hat
 		old_w_hat = w_hat
 
+		# Prepare the Y_mean
+		Y_mean = 0
+		if self.force_mean_center: Y_mean = Y.mean(axis=0)
 
-		error = lambda: self._calculate_error(Y,Xw,u_hat,w_hat,b_hat)
-		tol = lambda a,b:norm(a.flatten() - b.flatten(),2) < self.params['bilinear_tolerance']
+		error = lambda: self._calculate_error(Y-Y_mean,Xw,u_hat,w_hat,b_hat)
+		tol = lambda a,b:norm(a.flatten() - b.flatten(),2) <= self.params['bilinear_tolerance']
 		sparcity = lambda a: (float(sum((a == 0)))/a.size)
 		e=sys.float_info.max
+
 		for epoch in range(self.params["epochs"]):
 			self._reset_epoch(epoch,Xu,Xw,Y)
 			# phase 1: learn u & b given fixed w
@@ -144,21 +150,19 @@ class SparseRUWLearner(object):
 			self._ed("error_before",e)
 			logger.debug("... Epoch Start Error: %s"%e)
 			###### UPDATE W ###########
-			w_hat = self._learnW(Y,Xw,u_hat,w_hat,b_hat)
+			w_hat = self._learnW(Y-Y_mean,Xw,u_hat,w_hat,b_hat)
 			logger.debug("... w sparcity: %2.2f"%sparcity(w_hat))
 			e=error()
 			self._ed("error_after_word",e)
 			logger.debug("... Error after word: %s"%e)
 			###### UPDATE U ###########
-			u_hat,b_hat = self._learnU(Y,Xu,u_hat,w_hat,b_hat)
+			u_hat,b_hat = self._learnU(Y-Y_mean,Xu,u_hat,w_hat,b_hat)
 			logger.debug("... u sparcity: %2.2f"%sparcity(u_hat))
 			e=error()
 			self._ed("error_after_user",e)
 			logger.debug("... Error after user: %s"%e)
+			self._ed("Y_mean",Y_mean)
 			
-			
-			
-
 			if tol(u_hat,old_u_hat) and tol(w_hat,old_w_hat):
 				logger.debug("No change in previous epoch in either w or u, ending early")
 				break
@@ -166,7 +170,7 @@ class SparseRUWLearner(object):
 			old_u_hat = u_hat
 			self.params['epoch_callback'](self.epoch_dict)
 
-		return u_hat,w_hat,b_hat
+		return u_hat,w_hat,b_hat + Y_mean
 	def _calculate_error(self,Y,Xw,u_hat,w_hat,b_hat):
 		# logger.debug("Calculating error...")
 		Dstack = self._stack_D(Xw,u_hat)

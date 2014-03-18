@@ -4,6 +4,7 @@ import spams
 from IPython import embed
 from tools.utils import reshapeflat, reshapecoo
 from copy import deepcopy as dc
+import logging;logger = logging.getLogger("root")
 import time
 
 np.random.seed(1)
@@ -13,7 +14,7 @@ R = 3   # regions
 T = 5   # tasks aka number of outputs for each region
 U = 7   # number of users per region, assumed constant and disjoint
 W = 11   # words in vocabulary
-N = 501  # training examples for each region & task
+N = 13  # training examples for each region & task
 
 # the weights we aim to learn
 u = np.random.random((R, T, U))
@@ -70,7 +71,7 @@ u_hat = np.ones_like(u)
 w_hat = np.ones_like(w)
 b_hat = np.zeros_like(b)
 
-# print "Data created"
+logger.debug("Data created")
 
 spamsParams = {
 	"intercept": True,
@@ -141,7 +142,7 @@ for epoch in range(4):
 
 	# phase 1: learn u & b given fixed w
 	# Here we make V = region stacked (d x u) x t
-	# print "Creating V matrix..."
+	logger.debug("Creating V matrix...")
 	start_time = round(time.time() * 1000)
 	NL = R * U
 	V = [
@@ -181,7 +182,7 @@ for epoch in range(4):
 	if(difffromdense > 0.0000001): 
 		# print "The V stack is WRONG"
 		sys.exit()
-	# embed()
+	
 	epoch_res["Vr"] = []
 	epoch_res["V"] = V
 	spamsParams['loss'] = "square-missing"
@@ -235,9 +236,9 @@ for epoch in range(4):
 	regulFlatwhat = regulGroups(flatwhat,groups_var)
 	errorAfterUser = norm(Yest + b_hat - Y)/2 + regulFlatwhat * graphparams['lambda1']
 	epoch_res['error_after_user'] = errorAfterUser
-	# print "(1) User Opt Error: ",errorAfterUser
+	logger.debug("(1) User Opt Error: %s"%errorAfterUser)
 	if previousError < errorAfterUser:
-		print "The error must never rise"
+		logger.debug("The error must never rise")
 		# print "THERE WAS A RISE IN ERROR AFTER OPTIMISING WORDS" 
 
 	# Dstack = zeros((N*R*T,W*R*T))
