@@ -3,7 +3,8 @@ from scipy import sparse as ssp
 import spams
 from IPython import embed
 from tools.utils import reshapeflat, reshapecoo
-from copy import deepcopy as dc
+# from copy import deepcopy as dc
+dc = lambda a: a
 import logging;logger = logging.getLogger("root")
 import time
 
@@ -87,32 +88,30 @@ spamsParams = {
 	# 'pos' : False
 }
 # set up the group regul
-wrindex = arange(R*T*W).reshape([R,T,W])
-ngroups = W * (T + R)
+wrindex = arange(R*W).reshape([R,W])
+ngroups = W * R
 eta_g = ones(ngroups,dtype = np.float)
 groups = ssp.csc_matrix(
 	np.zeros(
 		(ngroups,ngroups),dtype = np.bool
 	),dtype = np.bool
 )
-groups_var = zeros([W*R*T,ngroups],dtype=np.bool)
+groups_var = zeros([W*R,ngroups],dtype=np.bool)
 i = 0
 for word in range(W):
 	for r in range(R):
-		groups_var[wrindex[r,:,word],i] = 1
-		i+=1
-	for t in range(T):
-		groups_var[wrindex[:,t,word],i] = 1
+		groups_var[wrindex[r,word],i] = 1
 		i+=1
 groups_var = ssp.csc_matrix(groups_var,dtype=np.bool)
 graph = {'eta_g': eta_g,'groups' : groups,'groups_var' : groups_var}
 graphparams = {
 	"intercept":False,
-	"loss":"square",
+	"loss":"square-missing",
 	"regul":"multi-task-graph",
-	'lambda1' : 0.5,
-	'lambda2' : 0.5,
-	'verbose' : False
+	'lambda1' : 0.05,
+	'lambda2' : 0.05,
+	'verbose' : False,
+	'numThreads': 1
 }
 
 def regulGroups(weights,groups):
@@ -253,27 +252,33 @@ for epoch in range(4):
 	# just to see if it is the same, not to be used in ernest!!!
 
 
-	Dstack = ssp.lil_matrix((N*R*T,W*R*T))
+	Dstack = ssp.lil_matrix((N*R*T,W*R))
 
-	i = 0;
+	
 	NW = N * W
-	for r in range(R):
-		# I expect this to be (N * W) * U
-		Xwr = Xw[r*NW:(r+1)*NW,:]
-		for t in range(T):
+	i = 0;
+	for t in range(T):
+		for r in range(R):
+			# I expect this to be (N * W) * U
+			Xwr = Xw[r*NW:(r+1)*NW,:]
 			# I expect this to be (N * W) * 1
-			Xwrt = Xwr.dot(u_hat[r,t,:])
-			epoch_res["Xwrt_r%d_t%d"%(r,t)] = dc(Xwrt)
+			Xwrt = ssp.csr_matrix(Xwr.dot(u_hat[r,t,:]))
+			# epoch_res["Xwrt_r%d_t%d"%(r,t)] = dc(Xwrt)
 			for n in range(N):
 				DSn = (i * N + n)
-				DSw = (i * W )
-				Dstack.rows[DSn] = range(DSw,DSw + W)
-				Dstack.data[DSn] = Xwrt[n*W:n*W + W]
-				epoch_res["Dstack_%d"%DSn] = dc(Dstack[DSn,:])
-			i+=1 
+				DSw = (r * W )
+				sub = ssp.lil_matrix(Xwrt[:,n*W:n*W + W])
+				Dstack.rows[DSn] = [x + DSw for x in sub.rows[0]]
+				Dstack.data[DSn] = sub.data[0]
+				# epoch_res["Dstack_%d"%DSn] = dc(Dstack[DSn,:])
+			i+=1
 	# Yntrflat = array([ Y.transpose([2,1,0]).flatten()]).T
 	Yntrflat = array([ (Y-b_hat).transpose([2,1,0]).flatten()]).T
-	Yspams = asfortranarray(Yntrflat)
+	Ytaskflat = ones((N*R*T,T))
+	Ytaskflat[:,:] = NaN
+	for t in range(T):
+		Ytaskflat[t * N * R:(t+1) * N * R,t] = Yntrflat[t * N * R:(t+1) * N * R][:,0]
+	Yspams = asfortranarray(Ytaskflat)
 	Xspams = Dstack.tocsc()
 	wr0 = asfortranarray(zeros((Xspams.shape[1],Yspams.shape[1])))
 	
@@ -286,7 +291,8 @@ for epoch in range(4):
 	epoch_res["D"]['Yspams'] = dc(Yspams)
 	epoch_res["D"]['wr0'] = dc(wr0)
 	epoch_res["D"]['wr'] = dc(wr)
-	w_hat = wr.reshape([R,T,W])
+	w_hat = wr.reshape([R,W,T]).transpose([0,2,1])
+	# w_hat = wr.reshape([R,T,W])
 	Yest = diagonal(diagonal(w_hat.dot(D),axis1=1,axis2=2),axis1=0,axis2=2)
 
 	D = np.diagonal(np.tensordot(u_hat, X, axes=([2],[2])), axis1=3, axis2=0)

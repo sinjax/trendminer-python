@@ -6,7 +6,7 @@ import logging;logger = logging.getLogger("root")
 from experimentfolds import *
 # from optparse import OptionParser
 import argparse
-from ..learner.batch.regionuserwordlearner import SparseRUWLearner,prep_wspams,prep_uspams,prep_w_graphbit,print_epoch_words
+
 import cPickle as pickle
 import time
 import sys
@@ -45,7 +45,13 @@ parser.add_argument("--force-simple-word", "-fs", dest="force_simple_word", defa
                   help="Use a simple regulariser on words, faster, good for testing")
 parser.add_argument("--force-mean-center","-fc", dest="force_mean_center", default=None, action='store_true',
                   	help="Remove the mean from the response variable")
+parser.add_argument("--multi-task-mode","-mt",dest = "multi_task_mode", default=False, action='store_true',help="regularise w as multi task graph")
 options = parser.parse_args()
+
+if options.multi_task_mode:
+	from ..learner.batch.regionuserwordMTlearner import SparseRUWMTLearner as SparseRUWLearner,prep_wspams,prep_uspams,prep_w_graphbit,print_epoch_words
+else: 
+	from ..learner.batch.regionuserwordlearner import SparseRUWLearner,prep_wspams,prep_uspams,prep_w_graphbit,print_epoch_words
 
 
 voc_keep = None
@@ -88,7 +94,10 @@ w_spams_graphbit = None
 while w_spams_graphbit is None:
 	if options.w_spams_file and os.path.exists(options.w_spams_file):
 		w_spams_graphbit = pickle.load(file(options.w_spams_file,"rb"))
-		if W * T * R != w_spams_graphbit[0]['groups_var'].shape[0]:
+		expected_size = 0
+		if options.multi_task_mode: expected_size = W * R
+		else: expected_size = W * T * R
+		if  expected_size != w_spams_graphbit[0]['groups_var'].shape[0]:
 			logger.error("Loaded word graph group does not match vocabulary size, reloading, deleting old")
 			w_spams_graphbit = None
 			os.remove(options.w_spams_file)
@@ -114,7 +123,7 @@ if options.word_group_limit is not None:
 if options.force_simple_word: 
 	w_spams = prep_uspams(lambda1=float(options.u_lambda)) # Useful for test, much faster
 else: 
-	w_spams = prep_wspams(W,T,R,graphbit=w_spams_graphbit,lambda1=float(options.w_lambda))
+	w_spams = prep_wspams(W,T,R,graphbit=w_spams_graphbit,lambda1=float(options.w_lambda),lambda2=float(options.w_lambda))
 
 u_spams = prep_uspams(lambda1=float(options.u_lambda))
 
