@@ -44,16 +44,22 @@ class SparseRUWMTLearner(SparseRUWLearner):
 		super(SparseRUWMTLearner, self).__init__(u_spams,w_spams,**params)
 
 	def _calculate_error(self,Y,Xw,u_hat,w_hat,b_hat):
+		W,N,T,R = self.W,self.N,self.T,self.R
 		# logger.debug("Calculating error...")
 		Dstack = self._stack_D(Xw,u_hat)
 		Yntrflat = array([ Y.transpose([2,1,0]).flatten()]).T
-		Ytaskflat = ones((N*R*T,T))
-		Ytaskflat[:,:] = NaN
-		for t in range(T):
-			Ytaskflat[t * N * R:(t+1) * N * R,t] = Yntrflat[t * N * R:(t+1) * N * R][:,0]
-asddsaasddas this right here needs fixing!!
+		
+		w_hat_taskflat = w_hat.transpose([0,2,1]).reshape([W*R,T])
+		Yest_taskflat = Dstack.dot(w_hat_taskflat)
 		flatw = array([w_hat.flatten()]).T
-		Yest = Dstack.dot(flatw)
+		
+		# Let's flatten it out to do the rest of the calculations
+		Yest = zeros_like(Yntrflat)
+		for t in range(T):
+		    Yest[t * N * R:(t+1) * N * R,:] = array([
+		    	Yest_taskflat[t * N * R:(t+1) * N * R,t]
+		    ]).T
+
 		# This is:
 		# 	- making Yest into something the same shape as Y
 		# 	- Then adding the bias
@@ -62,6 +68,7 @@ asddsaasddas this right here needs fixing!!
 		Yest = array([(Yest.reshape([self.R,self.T,self.N]
 				).transpose([2,1,0]) + b_hat
 			).transpose([2,1,0]).flatten()]).T
+
 		# uerr_regul = sum([self.u_spams._regul_error(u_hat[x,:,:]) for x in range(u_hat.shape[0]) ])
 		uerr_regul = 0
 		werr = self.w_spams.error(Yest,Yntrflat,flatw)
@@ -89,7 +96,7 @@ asddsaasddas this right here needs fixing!!
 		wr0 = asfortranarray(zeros((Xspams.shape[1],Yspams.shape[1])))
 		wr,_ = self.w_spams.call(Xspams,Yspams,wr0)	
 		w_hat = wr.reshape([R,W,T]).transpose([0,2,1])
-		embed()
+		# embed()
 		self._ed("w_hat",dc(w_hat))
 
 		return w_hat
@@ -140,7 +147,7 @@ def prep_w_graphbit(W,T,R):
 	logger.debug("Done creating group_var")
 	groups_var = ssp.csc_matrix(groups_var,dtype=np.bool)
 	graph = {'eta_g': eta_g,'groups' : groups,'groups_var' : groups_var}
-	embed()
+	# embed()
 	return graph, allgs
 
 def prep_wspams(W,T,R, graphbit=None, **otherargs):
@@ -150,9 +157,11 @@ def prep_wspams(W,T,R, graphbit=None, **otherargs):
 		"regul":"multi-task-graph",
 		'lambda1' : 0.5,
 		'lambda2' : 0.5,
-		'verbose' : False
+		'verbose' : False,
+		'missing': True
 	}
 	if not graphbit: graphbit = prep_w_graphbit(W,T,R)
 	graph,allgs = graphbit
 	graphparams = dict(graphparams.items() + otherargs.items())
+	embed()
 	return FistaGraph(graph,allgs,**graphparams)
