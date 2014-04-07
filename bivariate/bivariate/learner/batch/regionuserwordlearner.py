@@ -290,11 +290,11 @@ class SparseRUWLearner(object):
 		self._ed("w_hat",dc(w_hat))
 
 		return w_hat
-def print_epoch_words(epoch,voc,n=20):
+def print_epoch_words(epoch,voc,n=20,region=-1,task=-1):
 	w = epoch["w_hat"]
 	
-	for r in range(epoch['R']):
-		for t in range(epoch['T']):
+	for r in [x for x in range(epoch['R']) if region == -1 or x == region]:
+		for t in [x for x in range(epoch['T']) if task == -1 or x == task]:
 			sortedrtw = np.argsort(w[r,t,:])
 			nonzero_rtw = sortedrtw[w[r,t,sortedrtw] != 0]
 
