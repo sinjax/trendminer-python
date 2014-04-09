@@ -62,6 +62,7 @@ def prepare_folds_windowed(args):
 		}]
 
 	return set_fold
+import experimentinputmode as eim
 
 def prepare_fold_args(parser):
 	subparsers = parser.add_subparsers()
@@ -70,6 +71,7 @@ def prepare_fold_args(parser):
 	parser_windowed.add_argument('--train-win', type=int, default=48)
 	parser_windowed.add_argument('--test-win', type=int, default=5)
 	parser_windowed.set_defaults(folds=prepare_folds_windowed)
+	eim.prepare_input_mode(parser_windowed)
 
 	parser_growing = subparsers.add_parser('growing')
 	parser_growing.add_argument("--n-training", dest="ntrain",default=48,
@@ -79,3 +81,4 @@ def prepare_fold_args(parser):
 	parser_growing.add_argument("--n-test", dest="ntest",default=5,
 							help="Number of test instances and the increment per fold")
 	parser_growing.set_defaults(folds=prepare_folds)
+	eim.prepare_input_mode(parser_growing)

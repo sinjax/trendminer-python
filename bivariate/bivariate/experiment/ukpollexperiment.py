@@ -1,10 +1,9 @@
+import os
 from scipy import io as sio
 from bivariate.tools.utils import *
-from ..dataset.userwordregion import *
 from IPython import embed
 import logging;logger = logging.getLogger("root")
 from experimentfolds import *
-# from optparse import OptionParser
 import argparse
 
 import cPickle as pickle
@@ -79,8 +78,8 @@ pickle.dump(options,file(os.sep.join([output_dir,"cmd_opts"]),"w"))
 
 # Load a single day of the experiment so we can create the graph regulariser parameters
 dataCache = {}
-Y = sio.loadmat(options.polls)['regionpolls']
-uw,wu = read_split_userwordregion(options.xroot,cache=dataCache,voc_keep=voc_keep,*[0])
+Y = options.readpoll(sio.loadmat(options.polls))
+uw,wu = options.readsplit(options.xroot,cache=dataCache,voc_keep=voc_keep,*[0])
 W = uw.shape[1]
 if voc_keep is not None and W > len(voc_keep):
 	logger.error("Vocabulary size does not match the voc_keep index size, exiting")
@@ -88,6 +87,10 @@ if voc_keep is not None and W > len(voc_keep):
 U = wu.shape[1]
 R = wu.shape[0]/W
 T = Y.shape[1]
+
+if R != Y.shape[2]:
+	logger.error("Inconsistency detected between number of regions in Y and X")
+	sys.exit()
 
 w_spams_graphbit = None
 # ... Try to load and cache the graph regulariser
@@ -153,9 +156,9 @@ for fold in experiments:
 	test = fold['test']
 	validation = fold['validation']
 	logger.debug("Reading training data...")
-	Xtrain_uw,Xtrain_wu = read_split_userwordregion(options.xroot,voc_keep=voc_keep,cache=dataCache,*training)
+	Xtrain_uw,Xtrain_wu = options.readsplit(options.xroot,voc_keep=voc_keep,cache=dataCache,*training)
 	logger.debug("Reading test data...")
-	Xtest_uw,Xtest_wu = read_split_userwordregion(options.xroot,voc_keep=voc_keep,cache=dataCache,*test)
+	Xtest_uw,Xtest_wu = options.readsplit(options.xroot,voc_keep=voc_keep,cache=dataCache,*test)
 	Ytrain = Y[training,:,:]
 	Ytest = Y[test,:,:]
 	logger.debug("Learning...")
