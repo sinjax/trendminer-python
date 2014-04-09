@@ -8,6 +8,8 @@ from bivariate.tools.utils import *
 import cPickle as pickle
 from scipy import io as sio
 from ..learner.batch.regionuserwordlearner import print_epoch_words
+from vis.rmse_table import rmse_table
+
 
 def nfold_vis(args):
 	if not os.path.exists(args.exp): logger.error("Could not find experiment at location: %s"%args.exp)
@@ -134,6 +136,7 @@ def important_words(args):
 			print_epoch_words(epoch,voc,args.nwords,args.force_region)
 
 
+
 def main():
 	parser = argparse.ArgumentParser(description='Visualise a region experiment')
 	parser.add_argument("-exp", dest="exp",default="./", help="Location of the experiment, must contain the log, config and fold dirs")
@@ -143,17 +146,20 @@ def main():
 	parser.add_argument("-region", dest="force_region",default=-1,type=int,help="Force the region to extract data from")
 	
 	subparsers = parser.add_subparsers()
-	parser_windowed = subparsers.add_parser('nfold')
-	parser_windowed.set_defaults(vis=nfold_vis)
+	subparser = subparsers.add_parser('nfold')
+	subparser.set_defaults(vis=nfold_vis)
 	
-	parser_windowed = subparsers.add_parser('worduserstats')
-	parser_windowed.set_defaults(vis=stats)
+	subparser = subparsers.add_parser('worduserstats')
+	subparser.set_defaults(vis=stats)
 	
-	parser_windowed = subparsers.add_parser('words')
-	parser_windowed.set_defaults(vis=important_words)
-	parser_windowed.add_argument("-voc", dest="vocabulary",default=None,type=str,required=True,help="Location of the vocabulary file to load words from")
-	parser_windowed.add_argument("-vockey", dest="voc_key",default="voc_filtered",type=str,help="Key to get vocabulary from")
-	parser_windowed.add_argument("-n", dest="nwords",default=20,type=int,help="Number of words to display per region")
+	subparser = subparsers.add_parser('words')
+	subparser.set_defaults(vis=important_words)
+	subparser.add_argument("-voc", dest="vocabulary",default=None,type=str,required=True,help="Location of the vocabulary file to load words from")
+	subparser.add_argument("-vockey", dest="voc_key",default="voc_filtered",type=str,help="Key to get vocabulary from")
+	subparser.add_argument("-n", dest="nwords",default=20,type=int,help="Number of words to display per region")
+
+	subparser = subparsers.add_parser('rmsetable')
+	subparser.set_defaults(vis=rmse_table)
 	
 	options = parser.parse_args()
 

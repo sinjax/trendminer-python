@@ -69,7 +69,6 @@ for epoch in range(10):
 		np.tensordot(X,w_hat,axes=([3],[2])),
 		axis1=1, axis2=3
 	)
-
 	for r in range(R):
 		# this is (N x U x T)
 		Vr = V[:,:,:,r]
