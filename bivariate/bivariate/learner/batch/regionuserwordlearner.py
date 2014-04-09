@@ -312,6 +312,36 @@ def print_epoch_words(epoch,voc,n=20,region=-1,task=-1):
 			neg_word_str = ",".join([x[0] for x in neg_words])
 			logger.debug("Neg: R%d,T%d: (%2.5f->%2.5f) %s"%(r,t,neg_minscore,neg_maxscore,neg_word_str))
 
+def scored_epoch_words(epoch,voc,n=20,region=-1,task=-1):
+	w = epoch["w_hat"]
+	regon_tasks = {}
+	for r in [x for x in range(epoch['R']) if region == -1 or x == region]:
+		regon_tasks[r] = {}
+
+		for t in [x for x in range(epoch['T']) if task == -1 or x == task]:
+			regon_tasks[r][t] = {}
+			sortedrtw = np.argsort(w[r,t,:])
+			nonzero_rtw = sortedrtw[w[r,t,sortedrtw] != 0]
+
+			pos_words = voc[nonzero_rtw[-n:]][:,0]
+			pos_score = w[r,t,nonzero_rtw[-n:]]
+			pos_score_max = pos_score.max()
+
+			regon_tasks[r][t]['pos'] = [(pos_words[x][0],pos_score[x]/pos_score_max) for x in range(len(pos_words))]
+			regon_tasks[r][t]['pos'].reverse()
+
+			neg_words = voc[nonzero_rtw[:n]][:,0]
+			neg_score = abs(w[r,t,nonzero_rtw[:n]])
+			neg_score_max = neg_score.max()
+
+			regon_tasks[r][t]['neg'] = [(neg_words[x][0],neg_score[x]/neg_score_max) for x in range(len(neg_words))]
+			# embed()
+
+			
+	return regon_tasks
+
+
+
 def stack_D(Xw,u_hat,W,N,T,R):
 	Dstack = ssp.lil_matrix((N*R*T,W*R*T))
 

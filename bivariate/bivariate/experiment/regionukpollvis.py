@@ -1,4 +1,5 @@
 from pylab import *
+import wordcloud
 import argparse
 import logging;logger = logging.getLogger("root")
 import os
@@ -7,13 +8,16 @@ from IPython.frontend.terminal.embed import *
 from bivariate.tools.utils import *
 import cPickle as pickle
 from scipy import io as sio
-from ..learner.batch.regionuserwordlearner import print_epoch_words
+from ..learner.batch.regionuserwordlearner import print_epoch_words,scored_epoch_words
 
 def nfold_vis(args):
 	if not os.path.exists(args.exp): logger.error("Could not find experiment at location: %s"%args.exp)
-	out_dir = os.sep.join([args.out,"u_lambda=%s"%exp_opts.u_lambda,"w_lambda=%s"%exp_opts.w_lambda])
-	if not os.path.exists(out_dir): os.makedirs(out_dir)
+
 	exp_opts = pickle.load(file(os.sep.join([args.exp,"cmd_opts"]),"rb"))
+	out_dir = os.sep.join([args.out,"u_lambda=%s"%exp_opts.u_lambda,"w_lambda=%s"%exp_opts.w_lambda])
+	
+	if not os.path.exists(out_dir): os.makedirs(out_dir)
+	
 
 	folds = [x for x in os.listdir(args.exp) if "fold" in x]
 	folds.sort()
@@ -47,16 +51,18 @@ def nfold_vis(args):
 				
 				epoch_folds[r] = region_folds 
 			epoch_folds_dict[epoch_name] = epoch_folds
+	rc('axes', color_cycle=['r', 'g', 'b'])
 	for epoch in epochs:
 		figdir = os.sep.join([out_dir,"%s"%epoch])
 		if not os.path.exists(figdir): os.makedirs(figdir)
 		for r in epoch_folds_dict[epoch]:
 			figure()
-			title("%s, region: %d"%(epoch,r))
-			plot(epoch_folds_dict[epoch][r]['mean'].T,".")
+			title("region: %s"%(region_map[r]))
+			plot(epoch_folds_dict[epoch][r]['mean'].T,".",)
 			plot(epoch_folds_dict[epoch][r]['correct'].T,"--")
-			plot(epoch_folds_dict[epoch][r]['estimate'].T,"-")
-			figpath = os.sep.join([figdir,"region_%d.png"%r])
+			lines = plot(epoch_folds_dict[epoch][r]['estimate'].T,"-")
+			legend(lines, [task_map[x] for x in range(len(lines))])
+			figpath = os.sep.join([figdir,"region_%d.pdf"%r])
 
 			savefig(figpath)
 
@@ -69,6 +75,12 @@ region_map = {
 	2 : "Midlands",
 	3 : "North England",
 	4 : "Scotland",
+}
+
+task_map = {
+	0 : "Conservative",
+	1 : "Labour",
+	2 : "Lib Dem"
 }
 def stats(args):
 	if not os.path.exists(args.exp):
@@ -133,6 +145,46 @@ def important_words(args):
 			logger.info("Total Selected Words: %d"%selected_words)
 			print_epoch_words(epoch,voc,args.nwords,args.force_region)
 
+def words_cloud(args):
+
+	voc = sio.loadmat(args.vocabulary)[args.voc_key]
+	
+	folds = [x for x in os.listdir(args.exp) if "fold" in x]
+	folds.sort()
+
+	if args.force_fold >= 0: folds = [x for x in folds if "%d"%args.force_fold in x]
+	exp_opts = pickle.load(file(os.sep.join([args.exp,"cmd_opts"]),"rb"))
+	out_dir = os.sep.join([args.out,"u_lambda=%s"%exp_opts.u_lambda,"w_lambda=%s"%exp_opts.w_lambda])
+	if not os.path.exists(out_dir): os.makedirs(out_dir)
+
+	logger.info("Number of folds: %d"%len(folds))
+	for fold in folds:
+		fold_dir = os.sep.join([args.exp,fold])
+		epochs = [x for x in os.listdir(fold_dir) if "epoch" in x]
+		epochs.sort()
+		if args.force_epoch >= 0: epochs = [x for x in epochs if "%d"%args.force_epoch in x]
+		for epoch_name in epochs:
+			ef_out_dir = os.sep.join([out_dir,fold,epoch_name])
+			if not os.path.exists(ef_out_dir): os.makedirs(ef_out_dir)
+			epoch_path = os.sep.join([fold_dir,epoch_name])
+			epoch = load_compressed(epoch_path)
+
+			region_task_words = scored_epoch_words(epoch,voc,args.nwords,args.force_region)
+			
+			for r in region_task_words:
+				for t in region_task_words[r]:
+					for pn in region_task_words[r][t]:
+						if args.for_wordle:
+							outname = "%s_r%dt%d.wordle"%(pn,r,t)
+							outfile = os.sep.join([ef_out_dir,outname])
+							f = file(outfile,"w")
+							for word,score in region_task_words[r][t][pn]:
+								f.write("%s: %2.5f\n"%(word,score))
+							f.close()
+						else:
+							outname = "%s_r%dt%d.png"%(pn,r,t)
+							fit_rtw = wordcloud.fit_words(region_task_words[r][t][pn],font_path=args.font)
+							wordcloud.draw(fit_rtw, os.sep.join([ef_out_dir,outname]),font_path=args.font)
 
 def main():
 	parser = argparse.ArgumentParser(description='Visualise a region experiment')
@@ -154,7 +206,17 @@ def main():
 	parser_windowed.add_argument("-voc", dest="vocabulary",default=None,type=str,required=True,help="Location of the vocabulary file to load words from")
 	parser_windowed.add_argument("-vockey", dest="voc_key",default="voc_filtered",type=str,help="Key to get vocabulary from")
 	parser_windowed.add_argument("-n", dest="nwords",default=20,type=int,help="Number of words to display per region")
+
+	parser_windowed = subparsers.add_parser('wordcloud')
+	parser_windowed.set_defaults(vis=words_cloud)
+	parser_windowed.add_argument("-voc", dest="vocabulary",default=None,type=str,required=True,help="Location of the vocabulary file to load words from")
+	parser_windowed.add_argument("-vockey", dest="voc_key",default="voc_filtered",type=str,help="Key to get vocabulary from")
+	parser_windowed.add_argument("-n", dest="nwords",default=20,type=int,help="Number of words to display per region")
+	parser_windowed.add_argument("-font", dest="font",default="/usr/local/texlive/2012/texmf-dist/fonts/truetype/public/droid/DroidSansMono.ttf",type=str,help="Font to draw")
+	parser_windowed.add_argument("-wordle", dest="for_wordle",default=False,action="store_true")
 	
+	
+
 	options = parser.parse_args()
 
 	options.vis(options)
