@@ -39,16 +39,16 @@ def h5py_sparse_row(ssp_mat_file):
 		ret[k] = ssp_mat
 	return ret
 
-def h5py_save_sparse_row(f,content):
+def h5py_save_sparse_row(f,content,compression="lzf"):
 	import h5py
 	tosave = h5py.File(f, "w")
 
 	for k,mat in content.items():
 		if not ssp.isspmatrix_csr(mat): mat = mat.tocsr()
 		tosaveg = tosave.create_group(k)
-		tosaveg.create_dataset("indptr",data=mat.indptr,compression='lzf')
-		tosaveg.create_dataset("data",data=mat.data,compression='lzf')
-		tosaveg.create_dataset("indices",data=mat.indices,compression='lzf')
+		tosaveg.create_dataset("indptr",data=mat.indptr,compression=compression)
+		tosaveg.create_dataset("data",data=mat.data,compression=compression)
+		tosaveg.create_dataset("indices",data=mat.indices,compression=compression)
 	tosave.flush()
 	tosave.close()
 
