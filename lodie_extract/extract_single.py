@@ -32,9 +32,6 @@ def extract_single(fil,userfreqs=defaultdict(int)):
 	annotations=[]
 
 	for par in data("p"):
-	 #   print par.prettify()
-		## paragraph contains links, end of current story
-#		print len(par)
 		links = par.findAll("a")
 
 		if links != []:
@@ -65,8 +62,6 @@ def extract_single(fil,userfreqs=defaultdict(int)):
 #				print "Users: ",users
 				curtext = []
 				annotations=[]
-				from IPython import embed
-    			embed()
 				#break
 		else:
 			txt = list(par.stripped_strings)
