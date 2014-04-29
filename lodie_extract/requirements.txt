@@ -1,0 +1,5 @@
+dateutils
+BeautifulSoup4
+lxml
+tldextract
+IPython==1.2.0

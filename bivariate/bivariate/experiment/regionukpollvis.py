@@ -27,7 +27,9 @@ def nfold_vis(args):
 	folds = [os.sep.join([args.exp,x]) for x in folds]
 
 	epoch_folds_dict = {}
-
+	R = None
+	T = None
+	max_value = 0
 	for fold_dir in folds:
 		epochs = [x for x in os.listdir(fold_dir) if "epoch" in x]
 		epochs.sort()
@@ -50,27 +52,49 @@ def nfold_vis(args):
 				region_folds["estimate"] = hstack([e,Y_est[:,:,r].T])
 				region_folds["correct"] = hstack([c,Y_corr[:,:,r].T])
 				region_folds["mean"] = hstack([m] + [epoch['Y_mean'][:,r:r+1]] * N)
+
+				max_value = max(
+					region_folds["estimate"].max(),
+					region_folds["correct"].max(),
+					region_folds["mean"].max(),
+					max_value
+				)
 				
 				epoch_folds[r] = region_folds 
 			epoch_folds_dict[epoch_name] = epoch_folds
-	rc('axes', color_cycle=['r', 'g', 'b'])
+	
+	meta_map = region_map
+	if R == 2: meta_map = gender_map
+
 	for epoch in epochs:
 		figdir = os.sep.join([out_dir,"%s"%epoch])
 		if not os.path.exists(figdir): os.makedirs(figdir)
 		for r in epoch_folds_dict[epoch]:
-			figure()
-			title("region: %s"%(region_map[r]))
+			f = figure()
+
+			title("metadata: %s"%(meta_map[r]))
+			ylim([0,max_value])
+			ax = f.get_axes()[0]
+			lines = []
+			ax.set_color_cycle(["k","r","g","b"])
+			lines += plot([],".",)
 			plot(epoch_folds_dict[epoch][r]['mean'].T,".",)
+			lines += plot([],"--")
 			plot(epoch_folds_dict[epoch][r]['correct'].T,"--")
-			lines = plot(epoch_folds_dict[epoch][r]['estimate'].T,"-")
-			legend(lines, [task_map[x] for x in range(len(lines))])
+			lines += plot([],"-")
+			lines += plot(epoch_folds_dict[epoch][r]['estimate'].T,"-")
+			ax.set_color_cycle(['k','k','k','r', 'g', 'b'])
+			leg = legend(lines, ["$\mu_{fold}$","true","BGGR"] + [task_map[x] for x in range(T)],loc="center left", bbox_to_anchor=(1,0.815), numpoints=1)
 			figpath = os.sep.join([figdir,"region_%d.pdf"%r])
 
-			savefig(figpath)
+			savefig(figpath,bbox_extra_artists=(leg,), bbox_inches='tight')
 
 	show()
 			
-
+gender_map = {
+	0 : "Female",
+	1 : "Male",
+}
 region_map = {
 	0 : "South England",
 	1 : "London",
@@ -80,9 +104,22 @@ region_map = {
 }
 
 task_map = {
-	0 : "Conservative",
-	1 : "Labour",
-	2 : "Lib Dem"
+	0 : "CON",
+	1 : "LAB",
+	2 : "LBD"
+}
+short_region_map = {
+	0 : "SE",
+	1 : "LN",
+	2 : "ME",
+	3 : "NE",
+	4 : "SC",
+}
+
+short_task_map = {
+	0 : "CON",
+	1 : "LAB",
+	2 : "LBD"
 }
 def stats(args):
 	if not os.path.exists(args.exp):
@@ -220,6 +257,8 @@ def main():
 
 	subparser = subparsers.add_parser('rmsetable')
 	subparser.set_defaults(vis=rmse_table)
+	subparser.add_argument("-fmt", dest="table_format",default="latex",type=str,help="How to print the RMSE table")
+	# subparser.add_argument('-mode', choices = ['region', 'gender'], dest="metadata_mode", default="region")
 
 	
 	
