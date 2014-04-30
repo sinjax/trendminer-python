@@ -25,17 +25,9 @@ def extract_valid_domain(link):
 total = 0.0
 mentionCount = 0.0
 def find_one_ANNIE(par, annietype):
-	annots = []
 	global total, mentionCount
 	for pers in par.find_all(annietype):
-		total += 1
-		#pers.stripped_strings = list(pers.stripped_strings)
 		annots.append("annotated:" + "_".join(pers.stripped_strings))
-		mentions = pers.find_all("Mention")
-		if len(mentions) != 0:
-			mentionCount += 1
-	if total!= 0:
-		print mentionCount/total
 	return annots
 
 def find_ANNIE(par):

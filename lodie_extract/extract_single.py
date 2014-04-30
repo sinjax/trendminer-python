@@ -33,9 +33,7 @@ def extract_single(fil,userfreqs=defaultdict(int)):
 
 	for par in data("p"):
 		links = par.findAll("a")
-
 		if links != []:
-
 			users = set()
 			for link in links:
 				domain = extract_valid_domain(link)
@@ -44,50 +42,27 @@ def extract_single(fil,userfreqs=defaultdict(int)):
 					link.clear()
 
 			txt = list(par.stripped_strings)
-			curtext.extend(txt)
 			if users:
 
-				## process text
-				tokens = []#process(curtext)
 				## find mentions, properties etc
-#			   # print "Paragraph ", ppar
-#			   # print "P ",par
 				annotations.extend(find_annotations(par))
 				update_counts(userfreqs, [u for u in users if u not in curUsersCounted])
 				curUsersCounted.union(users)
-				curRecord.items.append(Item(tokens + annotations, list(users)))
-#				print "Tokens: ",len(tokens),tokens
-#				print "Annotations: ",len(annotations),annotations
-				#print "diff:", list(set(tokens)-set(annotations))
-#				print "Users: ",users
-				curtext = []
+				curRecord.items.append(Item(annotations, list(users)))
 				annotations=[]
 				#break
 		else:
 			txt = list(par.stripped_strings)
-			if not txt:
-				continue
+			if not txt: continue
 			## paragraph ends with the text 'No Link', remove No Link text
 			## end current story
 			if len(txt)==2 and txt[0]==u"No" and txt[1]==u"link":
-				curtext.extend(txt[:-1])
-				## process text
-				tokens = []#process(curtext)
-				## find mentions, properties etc
-#		print "Paragraph no link: ", par
 				annotations.extend(find_annotations(par))
 				update_counts(userfreqs, [u"No Source"] if u"No Source" not in curUsersCounted else [])
 				curUsersCounted.add(u"No Source")
-				curRecord.items.append(Item(tokens + annotations, [u"No Source"]))
-#				print "Tokens: ",len(tokens),tokens
-#				print "Annotations: ",len(annotations),annotations
-#		print "No user"
-				curtext = []
+				curRecord.items.append(Item(annotations, [u"No Source"]))
 				annotations = []
 				#break
 			else:
-				curtext.extend(txt)
 				annotations.extend(find_annotations(par))
-#				print "Text: ",curtext
-#	print par
 	return curRecord
