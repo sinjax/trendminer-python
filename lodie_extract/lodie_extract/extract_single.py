@@ -11,10 +11,11 @@ from collections import defaultdict
 
 
 
-def extract_single(fil,userfreqs=defaultdict(int)):
+def extract_single(fil,userfreqs=defaultdict(int),termmeta=defaultdict(dict)):
 
 	date = basename(fil)[:-8]
 	curdate = parse(date)
+	
 
 	soup = BeautifulSoup(codecs.open(fil, "r", encoding='utf-8'), 'xml')
 
@@ -45,7 +46,7 @@ def extract_single(fil,userfreqs=defaultdict(int)):
 			if users:
 
 				## find mentions, properties etc
-				annotations.extend(find_annotations(par))
+				annotations.extend(find_annotations(par,meta=termmeta))
 				update_counts(userfreqs, [u for u in users if u not in curUsersCounted])
 				curUsersCounted.union(users)
 				curRecord.items.append(Item(annotations, list(users)))
@@ -57,12 +58,12 @@ def extract_single(fil,userfreqs=defaultdict(int)):
 			## paragraph ends with the text 'No Link', remove No Link text
 			## end current story
 			if len(txt)==2 and txt[0]==u"No" and txt[1]==u"link":
-				annotations.extend(find_annotations(par))
+				annotations.extend(find_annotations(par,meta=termmeta))
 				update_counts(userfreqs, [u"No Source"] if u"No Source" not in curUsersCounted else [])
 				curUsersCounted.add(u"No Source")
 				curRecord.items.append(Item(annotations, [u"No Source"]))
 				annotations = []
 				#break
 			else:
-				annotations.extend(find_annotations(par))
+				annotations.extend(find_annotations(par,meta=termmeta))
 	return curRecord
