@@ -55,20 +55,12 @@ def records_to_graph(records, tokenfreqs, users, termmeta, minTokenCount=11,uids
 	days = []
 	oldest_date = find_oldest_date(records)
 
-	data_graph = rdflib.ConjunctiveGraph()
-	user_graph = rdflib.ConjunctiveGraph()
-	word_graph = rdflib.ConjunctiveGraph()
-	date_graph = rdflib.ConjunctiveGraph()
-
 	TM = rdflib.Namespace("http://trandminer.org/ontology#")
-	data_graph.bind("tm",TM)
-	user_graph.bind("tm",TM)
-	word_graph.bind("tm",TM)
-	date_graph.bind("tm",TM)
-
-
+	ret_dict = {}
 	user_rev = dict([(y,x) for (x,y) in uids.users.items()])
 	for rec in records:
+		data_graph = rdflib.ConjunctiveGraph()
+		data_graph.bind("tm",TM)
 		## for date index
 		daystring = rec.day.date().isoformat()
 		cur_date = rec.day
@@ -93,7 +85,10 @@ def records_to_graph(records, tokenfreqs, users, termmeta, minTokenCount=11,uids
 				data_graph.add((discussion,TM['byuser'], rdflib.Literal(user_rev[user],datatype=rdflib.XSD.string)))
 				data_graph.add((discussion,TM['word'], rdflib.URIRef(termmeta[word]['uri'])))
 				data_graph.add((discussion,TM['count'], rdflib.Literal(freq,datatype=rdflib.XSD.integer)))
+		ret_dict["date_" + daystring] = data_graph
 
+	word_graph = rdflib.ConjunctiveGraph()
+	word_graph.bind("tm",TM)
 	for word, index in sorted(tokendict.items(), key=lambda x: x[1]):
 		word_uri = rdflib.URIRef(termmeta[word]['uri'])
 		if 'type' in termmeta[word]:
@@ -101,21 +96,24 @@ def records_to_graph(records, tokenfreqs, users, termmeta, minTokenCount=11,uids
 			word_graph.add((word_uri,rdflib.OWL.Class,clz))
 
 		word_graph.add((word_uri,TM['index'],rdflib.Literal(index,datatype=rdflib.XSD.integer)))
+	ret_dict["word"] = word_graph
 
+	user_graph = rdflib.ConjunctiveGraph()
+	user_graph.bind("tm",TM)
 	for uname, index in sorted(uids.users.items(), key=lambda x: x[1]):
 		user_node = rdflib.BNode()
 		user_graph.add((user_node,TM['isuser'],rdflib.Literal(uname,datatype=rdflib.XSD.string)))
 		user_graph.add((user_node,TM['index'],rdflib.Literal(index,datatype=rdflib.XSD.integer)))
+	ret_dict["user"] = user_graph
 
+	date_graph = rdflib.ConjunctiveGraph()
+	date_graph.bind("tm",TM)
 	for index, date in sorted(days):
 		date_node = rdflib.BNode()
 		date_graph.add((date_node,TM['isdate'],rdflib.Literal(date,datatype=rdflib.XSD.string)))
 		date_graph.add((date_node,TM['index'],rdflib.Literal(index,datatype=rdflib.XSD.integer)))
 
-	return {
-		"data":data_graph, 
-		"word":word_graph, 
-		"user":user_graph, 
-		"date":date_graph
-	}
+	ret_dict["date"] = date_graph
+
+	return ret_dict
 	
