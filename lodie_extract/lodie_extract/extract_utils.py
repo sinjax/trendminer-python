@@ -85,7 +85,7 @@ def records_to_graph(records, tokenfreqs, users, termmeta, minTokenCount=11,uids
 				data_graph.add((discussion,TM['byuser'], rdflib.Literal(user_rev[user],datatype=rdflib.XSD.string)))
 				data_graph.add((discussion,TM['word'], rdflib.URIRef(termmeta[word]['uri'])))
 				data_graph.add((discussion,TM['count'], rdflib.Literal(freq,datatype=rdflib.XSD.integer)))
-		ret_dict["date_" + daystring] = data_graph
+		ret_dict["data_" + daystring] = data_graph
 
 	word_graph = rdflib.ConjunctiveGraph()
 	word_graph.bind("tm",TM)
