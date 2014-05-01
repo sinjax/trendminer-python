@@ -78,7 +78,7 @@ def records_to_graph(records, tokenfreqs, users, termmeta, minTokenCount=11,uids
 			certain_date = rdflib.BNode()
 			data_graph.add((certain_date,TM['date'], rdflib.Literal(cur_date,datatype=rdflib.XSD.date)))
 			data_graph.add((certain_date,TM['byuser'], rdflib.Literal(user_rev[user],datatype=rdflib.XSD.string)))
-			data_graph.add((certain_date,TM['count'], rdflib.Literal(curcounts[user],datatype=rdflib.XSD.integer)))
+			data_graph.add((certain_date,TM['article_count'], rdflib.Literal(curcounts[user],datatype=rdflib.XSD.integer)))
 			for word, freq in filtered_frequency(curdata[user]).items():
 				discussion = rdflib.BNode()
 				data_graph.add((discussion,TM['date'], rdflib.Literal(cur_date,datatype=rdflib.XSD.date)))
