@@ -62,6 +62,8 @@ parser.add_argument(
 
 options = parser.parse_args()
 
+if not os.path.exists(options.output): os.makedirs(options.output)
+
 sora_vs,sora_vsd = mcreate.create_sparse(options.files,**dict(options._get_kwargs()))
 
 print "Saving all days..."
