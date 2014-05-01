@@ -105,4 +105,3 @@ if options.daygroup == "month":
 	options.output_file = "%s/month_sora_vsd.mat"%(options.output)
 	options.name = "month_sora_vsd"
 	options.save(month_sora_vsd,options)
-		
