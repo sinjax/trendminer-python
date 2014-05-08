@@ -57,6 +57,7 @@ DATA_AGGR_QUERY = """
 
 def create_sparse(data_graphs,**xargs):
 	# load the day index graph
+
 	ndays,days_index =  load_index(xargs["dategraph"],DATE_QUERY)
 	nwords,word_index = load_index(xargs["wordgraph"],WORD_QUERY)
 	nusers,user_index = load_index(xargs["usergraph"],USER_QUERY)
@@ -67,6 +68,7 @@ def create_sparse(data_graphs,**xargs):
 		logger.debug("Loading and querying: " + data_graph)
 		data = load_graph(data_graph)
 		for query in queries:
+			embed()
 			entries = query_entries[query]
 			results = data.query(query)
 			for result in results:
@@ -78,6 +80,7 @@ def create_sparse(data_graphs,**xargs):
 					word = word_index[result['word'].toPython()]
 				count = result['count'].toPython()
 				entries += [[int(day),int(user),int(word),int(count)]]
+		asddsasa
 	results = []
 	for query in queries:
 		entries = query_entries[query]
@@ -95,6 +98,5 @@ def create_sparse(data_graphs,**xargs):
 			out[mkey(day,user),word] = count
 		out = getattr(out,"to%s"%xargs['type'])()
 		results += [out]
-	
 	return results
 	

@@ -43,13 +43,25 @@ parser.add_argument(
 )
 parser.set_defaults(save=save_matlab)
 parser.add_argument(
-	"-days", dest="dategraph",required=True,help="Day index to date",default=None,type=lambda x: file_exists(parser,x)
+	"-days", dest="dategraph",
+	required=True,
+	help="Day index to date",
+	default=None,
+	type=lambda x: file_exists(parser,x)
 )
 parser.add_argument(
-	"-words", dest="wordgraph",required=True,help="Word to index and class",default=None,type=lambda x: file_exists(parser,x)
+	"-words", dest="wordgraph",
+	required=True,
+	help="Word to index and class",
+	default=None,
+	type=lambda x: file_exists(parser,x)
 )
 parser.add_argument(
-	"-users", dest="usergraph",required=True,help="User to index",default=None,type=lambda x: file_exists(parser,x)
+	"-users", dest="usergraph",
+	required=True,
+	help="User to index",
+	default=None,
+	type=lambda x: file_exists(parser,x)
 )
 
 parser.add_argument(
