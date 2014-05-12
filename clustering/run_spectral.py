@@ -28,12 +28,12 @@ parser.add_argument(
 )
 parser.add_argument(
 	"-k", dest="k",help="K for the KNN",  required=False, 
-	default=30
+	default=30, type=int
 )
 
 parser.add_argument(
 	"-c", dest="c",help="Number of clusters in spectral clustering",  required=False, 
-	default=30
+	default=30, type=int
 )
 options = parser.parse_args()
-spectral(options.tweets,options.npmi,options.vdict,int(options.k),int(options.c))
+spectral(options.tweets,options.npmi,options.vdict,options.k,options.c)
