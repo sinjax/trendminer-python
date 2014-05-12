@@ -36,4 +36,4 @@ parser.add_argument(
 	default=30
 )
 options = parser.parse_args()
-spectral(options.tweets,options.npmi,options.vdict,options.k,options.c)
+spectral(options.tweets,options.npmi,options.vdict,int(options.k),int(options.c))
