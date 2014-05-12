@@ -68,7 +68,6 @@ def create_sparse(data_graphs,**xargs):
 		logger.debug("Loading and querying: " + data_graph)
 		data = load_graph(data_graph)
 		for query in queries:
-			embed()
 			entries = query_entries[query]
 			results = data.query(query)
 			for result in results:
@@ -80,7 +79,6 @@ def create_sparse(data_graphs,**xargs):
 					word = word_index[result['word'].toPython()]
 				count = result['count'].toPython()
 				entries += [[int(day),int(user),int(word),int(count)]]
-		asddsasa
 	results = []
 	for query in queries:
 		entries = query_entries[query]
